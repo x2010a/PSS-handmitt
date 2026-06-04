@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartPaddle Training Dashboard</title>
+    <style>
+        /* --- CSS STYLING ARCHITECTURE --- */
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-blue: #38bdf8;
+            --accent-green: #4ade80;
+            --accent-red: #f87171;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 15px;
+        }
+
+        h1 { margin: 0; font-size: 1.8rem; color: var(--text-main); }
+
+        .status-badge {
+            background-color: #334155;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        .status-badge.connected {
+            background-color: #064e3b;
+            color: var(--accent-green);
+        }
+
+        .control-panel {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        label {
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            border: 1px solid #334155;
+        }
+
+        .card h3 {
+            margin: 0 0 10px 0;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .card .value {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--accent-blue);
+        }
+        
+        #alignment-text {
+            color: var(--text-main);
+            transition: color 0.2s ease;
+        }
+        .square-align { color: var(--accent-green) !important; }
+        .over-align { color: var(--accent-red) !important; }
+        .under-align { color: #fbbf24 !important; } /* Amber yellow */
+
+        .log-section {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .log-section h2 {
+            margin: 0 0 15px 0;
+            font-size: 1.2rem;
+            color: var(--text-main);
+        }
+
+        .table-container {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #334155;
+            font-size: 0.95rem;
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            background-color: var(--card-bg);
+        }
+
+        tr:last-child td { border-bottom: none; }
+
+        /* Custom scrollbar styling for the log container */
+        .table-container::-webkit-scrollbar { width: 6px; }
+        .table-container::-webkit-scrollbar-track { background: transparent; }
+        .table-container::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>SmartPaddle V1</h1>
+            <div id="connection-status" class="status-badge">HARDWARE DISCONNECTED</div>
+        </header>
+
+        <div class="control-panel">
+            <input type="checkbox" id="ankleToggle" onchange="toggleAnkleSensor()">
+            <label for="ankleToggle">Link Ankle Gyro Alignment Sensor</label>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="card">
+                <h3>Impact Power</h3>
+                <div id="power-display" class="value">000</div>
+            </div>
+            <div class="card">
+                <h3>Ankle Angle</h3>
+                <div id="angle-display" class="value">0.00°</div>
+            </div>
+            <div class="card">
+                <h3>Foot Position</h3>
+                <div id="alignment-text" class="value">--</div>
+            </div>
+        </div>
+
+        <div class="log-section">
+            <h2>Session Kick Stream History</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Kick Number</th>
+                            <th>Power Rating</th>
+                            <th>Form Classification</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kickLogBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        const statusBadge = document.getElementById("connection-status");
+        const powerDisplay = document.getElementById("power-display");
+        const angleDisplay = document.getElementById("angle-display");
+        const alignmentText = document.getElementById("alignment-text");
+        const logBody = document.getElementById("kickLogBody");
+
+        // Universal connection entry point sequence
+        function initWebSocket() {
+            // Standard target IP address assigned to the S3 SoftAP gateway
+            ws = new WebSocket('ws://192.168.4.1/ws');
+
+            ws.onopen = function() {
+                console.log("WebSocket Bridge Established Successfully.");
+                statusBadge.innerText = "HARDWARE CONNECTED";
+                statusBadge.classList.add("connected");
+            };
+
+            ws.onclose = function() {
+                console.log("WebSocket Connection Severed. Reattempting in 2 seconds...");
+                statusBadge.innerText = "HARDWARE DISCONNECTED";
+                statusBadge.classList.remove("connected");
+                setTimeout(initWebSocket, 2000); // Self-healing fallback loop
+            };
+
+            ws.onerror = function(error) {
+                console.error("WebSocket Error Encountered: ", error);
+            };
+
+            ws.onmessage = function(event) {
+                console.log("-> Incoming Air Data Stream: " + event.data);
+                
+                // Parse out values using the standard structural pipe delimiter
+                let tokens = event.data.split('|');
+                let rootCommand = tokens[0];
+
+                if (rootCommand === "UPDATE") {
+                    let kickCount    = tokens[1];
+                    let impactPower  = tokens[2];
+                    let reactionTime = tokens[3]; // Available in data index slot 3
+                    let rawAngle     = parseFloat(tokens[4]).toFixed(2);
+                    let alignment    = tokens[5];
+
+                    // 1. Refresh real-time dashboard tracking nodes
+                    powerDisplay.innerText = impactPower;
+                    angleDisplay.innerText = rawAngle + "°";
+                    alignmentText.innerText = alignment;
+
+                    // 2. Adjust styling colors dynamically based on form layout classification
+                    alignmentText.className = "value"; // Reset classes
+                    if (alignment === "SQUARE") alignmentText.classList.add("square-align");
+                    if (alignment === "OVER")   alignmentText.classList.add("over-align");
+                    if (alignment === "UNDER")  alignmentText.classList.add("under-align");
+
+                    // 3. Append historical execution entry straight to table layout
+                    let newRow = document.createElement("tr");
+                    newRow.innerHTML = `
+                        <td><strong>Kick #${kickCount}</strong></td>
+                        <td>${impactPower} Pwr</td>
+                        <td><span style="font-weight: 600;">${alignment}</span> (${rawAngle}°)</td>
+                    `;
+                    // Insert at the absolute top of the table logs so newest entries are visible instantly
+                    logBody.insertBefore(newRow, logBody.firstChild);
+                }
+                
+                if (rootCommand === "ANKLE_PAIRED") {
+                    alignmentText.innerText = "READY";
+                    alignmentText.className = "value square-align";
+                }
+            };
+        }
+
+        // Checkbox tracking state handler triggers hardware calibration gates over the air
+        function toggleAnkleSensor() {
+            let checkbox = document.getElementById("ankleToggle");
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert("Cannot issue alignment command: Hardware bridge is not connected yet.");
+                checkbox.checked = false;
+                return;
+            }
+
+            if (checkbox.checked) {
+                console.log(">>> Requesting Ankle Alignment Sensor Calibration link...");
+                ws.send("ENABLE_ANKLE");
+            } else {
+                console.log(">>> Severing Ankle Alignment Sensor tracking loop...");
+                ws.send("DISABLE_ANKLE");
+                // Clear state positions safely on interface menu
+                angleDisplay.innerText = "0.00°";
+                alignmentText.innerText = "--";
+                alignmentText.className = "value";
+            }
+        }
+
+        // Auto-initialize the interface channel when browser page launches
+        window.onload = function() {
+            initWebSocket();
+        };
+    </script>
+</body>
+</html>
