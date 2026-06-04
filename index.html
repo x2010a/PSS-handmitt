@@ -1,313 +1,755 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartPaddle Training Dashboard</title>
-    <style>
-        /* --- CSS STYLING ARCHITECTURE --- */
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --accent-blue: #38bdf8;
-            --accent-green: #4ade80;
-            --accent-red: #f87171;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 800px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #334155;
-            padding-bottom: 15px;
-        }
-
-        h1 { margin: 0; font-size: 1.8rem; color: var(--text-main); }
-
-        .status-badge {
-            background-color: #334155;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-muted);
-        }
-        .status-badge.connected {
-            background-color: #064e3b;
-            color: var(--accent-green);
-        }
-
-        .control-panel {
-            background-color: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
-
-        input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
-
-        label {
-            font-size: 1rem;
-            cursor: pointer;
-            font-weight: 500;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            padding: 25px;
-            border-radius: 12px;
-            text-align: center;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            border: 1px solid #334155;
-        }
-
-        .card h3 {
-            margin: 0 0 10px 0;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-        }
-
-        .card .value {
-            font-size: 3rem;
-            font-weight: 800;
-            color: var(--accent-blue);
-        }
-        
-        #alignment-text {
-            color: var(--text-main);
-            transition: color 0.2s ease;
-        }
-        .square-align { color: var(--accent-green) !important; }
-        .over-align { color: var(--accent-red) !important; }
-        .under-align { color: #fbbf24 !important; } /* Amber yellow */
-
-        .log-section {
-            background-color: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
-
-        .log-section h2 {
-            margin: 0 0 15px 0;
-            font-size: 1.2rem;
-            color: var(--text-main);
-        }
-
-        .table-container {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-        }
-
-        th, td {
-            padding: 12px;
-            border-bottom: 1px solid #334155;
-            font-size: 0.95rem;
-        }
-
-        th {
-            color: var(--text-muted);
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            background-color: var(--card-bg);
-        }
-
-        tr:last-child td { border-bottom: none; }
-
-        /* Custom scrollbar styling for the log container */
-        .table-container::-webkit-scrollbar { width: 6px; }
-        .table-container::-webkit-scrollbar-track { background: transparent; }
-        .table-container::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-    </style>
-</head>
+<!DOCTYPE html><html><head><title>Smart Paddle V1</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; text-align: center; margin: 0; padding: 0; transition: background 0.2s; }
+  .screen { display: none; padding: 20px; }
+  .active { display: block; animation: fadeIn 0.3s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .stat-card { background: #1e1e1e; padding: 15px; border-radius: 12px; margin: 15px auto; max-width: 350px; border: 1px solid #333; }
+  #timer { font-size: 5rem; color: #00ffcc; font-weight: bold; line-height: 1; }
+  .impact-big { font-size: 3.5rem; color: #ff3e3e; margin: 0; }
+  button { font-weight: bold; padding: 18px 30px; background: #28a745; color: white; border: none; border-radius: 35px; font-size: 1.2rem; cursor: pointer; width: 85%; max-width: 300px; margin: 10px; transition: 0.2s; }
+  button.secondary { background: #444; }
+  button.audio-locked { background: #f1c40f; color: black; }
+  button:active { transform: scale(0.95); }
+  input, select { text-align: center; padding: 15px; margin: 10px; width: 85%; max-width: 300px; border-radius: 8px; border: none; background: #2a2a2a; color: white; font-size: 1rem; }
+  #modal-over { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; justify-content:center; align-items:center; flex-direction:column; }
+  .log-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; font-family: monospace; font-size: 0.8rem; }
+</style></head>
 <body>
 
-    <div class="container">
-        <header>
-            <h1>SmartPaddle V1</h1>
-            <div id="connection-status" class="status-badge">HARDWARE DISCONNECTED</div>
-        </header>
-
-        <div class="control-panel">
-            <input type="checkbox" id="ankleToggle" onchange="toggleAnkleSensor()">
-            <label for="ankleToggle">Link Ankle Gyro Alignment Sensor</label>
-        </div>
-
-        <div class="metrics-grid">
-            <div class="card">
-                <h3>Impact Power</h3>
-                <div id="power-display" class="value">000</div>
-            </div>
-            <div class="card">
-                <h3>Ankle Angle</h3>
-                <div id="angle-display" class="value">0.00°</div>
-            </div>
-            <div class="card">
-                <h3>Foot Position</h3>
-                <div id="alignment-text" class="value">--</div>
-            </div>
-        </div>
-
-        <div class="log-section">
-            <h2>Session Kick Stream History</h2>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Kick Number</th>
-                            <th>Power Rating</th>
-                            <th>Form Classification</th>
-                        </tr>
-                    </thead>
-                    <tbody id="kickLogBody">
-                        </tbody>
-                </table>
-            </div>
-        </div>
+  <div id="scr-menu" class="screen active">
+    <h1 style="margin-top: 50px; color: #ffcc00;">Smart Paddle</h1>
+    <p id="connStatus" style="color: #ff4444;">Searching for Hardware...</p>
+    <button id="audio-btn" class="audio-locked" onclick="unlockAudio()">1. ENABLE SOUND</button>
+    
+    <div id="volume-container" class="stat-card" style="display: none; border-color: #f1c40f;">
+      <p style="margin:0; font-size: 0.9rem; color: #aaa;">System Volume Booster</p>
+      <input type="range" id="vol-slider" min="0.2" max="10.0" step="0.2" value="1.0" 
+             oninput="updateVolumeLevel(this.value)" style="width: 85%; margin: 10px 0;">
+      <p id="vol-val" style="margin:5px 0 0 0; font-weight: bold; color: #f1c40f; font-size: 1.5rem;">1.0x</p>
     </div>
 
-    <script>
-        let ws;
-        const statusBadge = document.getElementById("connection-status");
-        const powerDisplay = document.getElementById("power-display");
-        const angleDisplay = document.getElementById("angle-display");
-        const alignmentText = document.getElementById("alignment-text");
-        const logBody = document.getElementById("kickLogBody");
+    <button onclick="showScreen('scr-settings-m1')">2. START MODE 1 (TIME)</button>
+    <button onclick="showScreen('scr-settings-m2')">3. START MODE 2 (REACTION)</button>
+    <button onclick="showScreen('scr-settings-m3')">4. START MODE 3 (PSS Efficiency)</button>
+    <button class="secondary" onclick="openProfiles()">USER PROFILES</button>
 
-        // Universal connection entry point sequence
-        function initWebSocket() {
-            // Standard target IP address assigned to the S3 SoftAP gateway
-            ws = new WebSocket('ws://192.168.4.1/ws');
+    <div class="stat-card" style="border-color: #555; margin-top: 25px;">
+      <p style="margin:0; font-size: 0.9rem; color: #aaa;">Hardware Sensitivity</p>
+      <input type="range" id="sens-slider" min="100" max="1200" step="50" value="350" 
+             oninput="updateSensDisp(this.value)" onchange="sendSensitivity(this.value)" 
+             style="width: 85%; margin: 10px 0;">
+      <p id="sens-val" style="margin:5px 0 0 0; font-weight: bold; color: #00ffcc; font-size: 1.5rem;">350</p>
+      <small style="color: #666; display: block; margin-top: 5px;">Lower = More Sensitive | Higher = Stiffer (Compensates for Soft Foam)</small>
+    </div>
+  </div>
 
-            ws.onopen = function() {
-                console.log("WebSocket Bridge Established Successfully.");
-                statusBadge.innerText = "HARDWARE CONNECTED";
-                statusBadge.classList.add("connected");
-            };
+  <div id="scr-settings-m1" class="screen">
+    <h2>Mode 1: Time Trial</h2>
+    <select class="p-select"><option value="Guest">-- Select Fighter --</option></select>
+    <input type="number" id="m1-time" placeholder="Seconds (e.g. 30)">
+    <input type="number" id="m1-kicks" placeholder="Target Kicks (optional)">
+    
+    <div class="stat-card" style="border-color: #ffcc00; text-align: left;">
+      <p style="margin: 0 0 10px 0; font-size: 0.85rem; color: #ffcc00; font-weight: bold;">PERIPHERAL CONFIGURATION</p>
+      <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.9rem;">
+        <input type="checkbox" id="m1-use-ankle" onchange="toggleAnkleDiscovery(this.checked)" style="width: auto; margin-right: 12px;"> 
+        <span>Link Ankle Gyro Sensor (ESP32-C3)</span>
+      </label>
+      <p id="ankle-status" style="margin: 5px 0 0 26px; font-size: 0.8rem; color: #666;">Status: Offline</p>
+    </div>
 
-            ws.onclose = function() {
-                console.log("WebSocket Connection Severed. Reattempting in 2 seconds...");
-                statusBadge.innerText = "HARDWARE DISCONNECTED";
-                statusBadge.classList.remove("connected");
-                setTimeout(initWebSocket, 2000); // Self-healing fallback loop
-            };
+    <br><button id="m1-start-btn" onclick="startMode1()">START</button>
+    <button class="secondary" onclick="showScreen('scr-menu')">BACK</button>
+  </div>
 
-            ws.onerror = function(error) {
-                console.error("WebSocket Error Encountered: ", error);
-            };
+  <div id="scr-settings-m2" class="screen">
+    <h2>Mode 2: Reaction</h2>
+    <select class="p-select"><option value="Guest">-- Select Fighter --</option></select>
+    <input type="number" id="m2-kicks" placeholder="Number of Kicks">
+    <div style="display:flex; justify-content: center;">
+      <input type="number" id="m2-min" placeholder="Min Sec" style="width: 40%;">
+      <input type="number" id="m2-max" placeholder="Max Sec" style="width: 40%;">
+    </div>
+    <input type="number" id="m2-window" placeholder="Rxn Window (e.g. 1.5) Sec">
+    <br><button onclick="startMode2()">START</button>
+    <button class="secondary" onclick="showScreen('scr-menu')">BACK</button>
+  </div>
 
-            ws.onmessage = function(event) {
-                console.log("-> Incoming Air Data Stream: " + event.data);
-                
-                // Parse out values using the standard structural pipe delimiter
-                let tokens = event.data.split('|');
-                let rootCommand = tokens[0];
+  <div id="scr-settings-m3" class="screen">
+    <h2 style="color: #00ffcc;">Mode 3: PSS Efficiency</h2>
+    <p style="color: #666; margin-top: -10px;">Configure your Calibration</p>
+    
+    <select class="p-select" id="m3-user-select">
+      <option value="Guest">-- Select Fighter --</option>
+    </select>
+    
+    <div class="stat-card" style="border-color: #444;">
+      <p style="margin: 0 0 10px 0; font-size: 0.9rem; color: #aaa;">Target Weight (kg)</p>
+      <input type="number" id="m3-target-weight" placeholder="e.g. 87" style="width: 80%;">
+    </div>
 
-                if (rootCommand === "UPDATE") {
-                    let kickCount    = tokens[1];
-                    let impactPower  = tokens[2];
-                    let reactionTime = tokens[3]; // Available in data index slot 3
-                    let rawAngle     = parseFloat(tokens[4]).toFixed(2);
-                    let alignment    = tokens[5];
+    <input type="number" id="m3-kicks" placeholder="Target Kicks (e.g. 10)">
 
-                    // 1. Refresh real-time dashboard tracking nodes
-                    powerDisplay.innerText = impactPower;
-                    angleDisplay.innerText = rawAngle + "°";
-                    alignmentText.innerText = alignment;
+    <hr style="border: 0; border-top: 1px solid #333; margin: 20px auto; width: 80%;">
 
-                    // 2. Adjust styling colors dynamically based on form layout classification
-                    alignmentText.className = "value"; // Reset classes
-                    if (alignment === "SQUARE") alignmentText.classList.add("square-align");
-                    if (alignment === "OVER")   alignmentText.classList.add("over-align");
-                    if (alignment === "UNDER")  alignmentText.classList.add("under-align");
+    <p style="font-size: 0.8rem; color: #888;">Select Sub-Mode:</p>
+    <button onclick="startSniperMode()">1. THE SNIPER (Precision)</button>
+    <button onclick="startTankMode()" style="background: #e67e22;">2. THE TANK (Survival)</button>
+    
+    <button class="secondary" onclick="showScreen('scr-menu')" style="margin-top: 20px;">BACK</button>
+  </div>
 
-                    // 3. Append historical execution entry straight to table layout
-                    let newRow = document.createElement("tr");
-                    newRow.innerHTML = `
-                        <td><strong>Kick #${kickCount}</strong></td>
-                        <td>${impactPower} Pwr</td>
-                        <td><span style="font-weight: 600;">${alignment}</span> (${rawAngle}°)</td>
-                    `;
-                    // Insert at the absolute top of the table logs so newest entries are visible instantly
-                    logBody.insertBefore(newRow, logBody.firstChild);
-                }
-                
-                if (rootCommand === "ANKLE_PAIRED") {
-                    alignmentText.innerText = "READY";
-                    alignmentText.className = "value square-align";
-                }
-            };
+  <div id="scr-game" class="screen">
+    <h2 id="dispName" style="color: #00ffcc;">Fighter</h2>
+    <div id="timer">00</div>
+    <div class="stat-card">
+      <h3>Kicks Done</h3>
+      <h1 id="dispKicks">0</h1>
+    </div>
+    <button onclick="manualEndSession()" style="background: #c0392b; width: 50%; padding: 10px; font-size: 1rem; margin-bottom: 10px;">END SESSION</button>
+    <div class="stat-card">
+      <h3>Impact / Reaction</h3>
+      <h1 id="dispImpact" class="impact-big">--</h1>
+      <div id="targetRangeDisp" style="color: #666; font-size: 0.9rem; margin-top: 10px;"></div>
+    </div>
+    <p id="statusMsg" style="font-weight:bold; font-size: 1.5rem;">GET READY...</p>
+  </div>
+
+  <div id="scr-profile-detail" class="screen">
+    <h2 id="det-name" style="color: #00ffcc;">User Details</h2>
+    <div id="det-bio" class="stat-card" style="text-align: left; font-size: 0.9rem; color: #aaa;"></div>
+    <h3>Workout History</h3>
+    <div id="det-history" style="max-height: 350px; overflow-y: auto;"></div>
+    <button class="secondary" onclick="showScreen('scr-profiles')">BACK</button>
+  </div>
+
+  <div id="scr-log" class="screen">
+    <h2 style="color:#ffcc00;">Session Summary</h2>
+    <div id="log-stats" class="stat-card" style="text-align: left; font-size: 0.9rem;"></div>
+    <div id="log-list" style="max-height: 300px; overflow-y: auto; margin: 10px auto; max-width: 350px; background: #1a1a1a; border-radius: 8px;"></div>
+    <button class="secondary" onclick="showScreen('scr-menu')">BACK TO MENU</button>
+  </div>
+
+  <div id="scr-profiles" class="screen">
+    <h2>User Profiles</h2>
+    <div id="profiles-list"></div>
+    <button onclick="showScreen('scr-create-profile')">+ NEW PROFILE</button>
+    <button class="secondary" onclick="showScreen('scr-menu')">BACK</button>
+  </div>
+
+  <div id="scr-create-profile" class="screen">
+    <h2>New Bio-Profile</h2>
+    <input type="text" id="p-name" placeholder="Name">
+    <input type="date" id="p-dob">
+    <input type="number" id="p-h" placeholder="Height (cm)">
+    <input type="number" id="p-w" placeholder="Weight (kg)">
+    <input type="text" id="p-cat" placeholder="Comp Weight Cat">
+    <br><button onclick="saveProfile()">SAVE PROFILE</button>
+    <button class="secondary" onclick="showScreen('scr-profiles')">CANCEL</button>
+  </div>
+
+  <div id="modal-over">
+    <div class="stat-card" style="border-color: #00ffcc; width: 85%;">
+      <h2 style="color: #00ffcc;">SESSION COMPLETE!</h2>
+      <p id="modal-summary" style="white-space: pre-line;"></p>
+      <button onclick="viewFullLog()">VIEW ALL KICKS</button>
+      <button class="secondary" onclick="closeModal()">EXIT</button>
+    </div>
+  </div>
+
+<script>
+  var gateway = `ws://${window.location.hostname}/ws`;
+  var websocket;
+  var countdownTimer;
+  var sessionKicks = []; 
+  var currentModeName = ""; 
+  let tankInterval;
+  let isDNF = false; 
+  let ankleConnected = false;
+  
+  var audioCtx = null;
+  var masterGainNode = null;
+
+  function unlockAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGainNode = audioCtx.createGain();
+        masterGainNode.gain.setValueAtTime(1.0, audioCtx.currentTime); 
+        masterGainNode.connect(audioCtx.destination);
+    }
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(0); osc.stop(0.1);
+    
+    document.getElementById('audio-btn').innerText = "SOUND ACTIVE";
+    document.getElementById('audio-btn').className = "secondary";
+    document.getElementById('volume-container').style.display = "block";
+  }
+
+  function updateVolumeLevel(val) {
+      document.getElementById('vol-val').innerText = val + "x";
+      if (masterGainNode && audioCtx) {
+          masterGainNode.gain.setValueAtTime(parseFloat(val), audioCtx.currentTime);
+      }
+  }
+
+  function playHitSound() {
+    if (!audioCtx || !masterGainNode) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(523, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    osc.connect(gain); 
+    gain.connect(masterGainNode); 
+    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+  }
+
+  function playGoSound() {
+    if (!audioCtx || !masterGainNode) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+    osc.connect(gain); 
+    gain.connect(masterGainNode);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+  }
+
+  function playSuccessTune() {
+    if (!audioCtx || !masterGainNode) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const melody = [{ f: 523, d: 0.15 }, { f: 523, d: 0.15 }, { f: 523, d: 0.15 }, { f: 523, d: 0.4 }, { f: 415, d: 0.4 }, { f: 466, d: 0.4 }, { f: 523, d: 0.2 }, { f: 466, d: 0.2 }, { f: 523, d: 0.8 }];
+    let st = audioCtx.currentTime;
+    melody.forEach((n) => {
+      const o = audioCtx.createOscillator(); const sO = audioCtx.createOscillator(); const g = audioCtx.createGain(); const f = audioCtx.createBiquadFilter();
+      o.type = 'triangle'; sO.type = 'square'; o.frequency.setValueAtTime(n.f, st); sO.frequency.setValueAtTime(n.f / 2, st);
+      f.type = 'lowpass'; f.frequency.setValueAtTime(2000, st); g.gain.setValueAtTime(0, st);
+      g.gain.linearRampToValueAtTime(0.3, st + 0.02); g.gain.exponentialRampToValueAtTime(0.01, st + n.d);
+      o.connect(f); sO.connect(f); f.connect(g); g.connect(masterGainNode);
+      o.start(st); sO.start(st); o.stop(st + n.d); sO.stop(st + n.d); st += n.d; 
+    });
+  }
+
+  function initWS() {
+    websocket = new WebSocket(gateway);
+    websocket.onopen = () => { 
+        document.getElementById('connStatus').innerText = "Connected"; 
+        document.getElementById('connStatus').style.color = "#28a745"; 
+        let savedSens = localStorage.getItem('globalSensitivity') || 350;
+        websocket.send("SET_SENS|" + savedSens);
+    };
+
+    websocket.onmessage = (evt) => {
+      if (evt.data === "OVER") { 
+            playSuccessTune(); 
+            endGame(false); 
+            if(tankInterval) clearInterval(tankInterval);
+            return; 
+        }
+        
+        if (evt.data === "TRIGGER_HIT") {
+            playHitSound();
+            return;
         }
 
-        // Checkbox tracking state handler triggers hardware calibration gates over the air
-        function toggleAnkleSensor() {
-            let checkbox = document.getElementById("ankleToggle");
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                alert("Cannot issue alignment command: Hardware bridge is not connected yet.");
-                checkbox.checked = false;
-                return;
+        // MODIFIED: Intermediate state managing text strings layout maps
+        if (evt.data === "ANKLE_FOUND") {
+            const statusTxt = document.getElementById('ankle-status');
+            if (statusTxt) {
+                statusTxt.innerText = "Calibrating Gyro... Stand completely still!";
+                statusTxt.style.color = "#e67e22"; // Bright Orange
             }
+            return;
+        }
 
-            if (checkbox.checked) {
-                console.log(">>> Requesting Ankle Alignment Sensor Calibration link...");
-                ws.send("ENABLE_ANKLE");
+        if (evt.data === "ANKLE_PAIRED") {
+            ankleConnected = true;
+            const statusTxt = document.getElementById('ankle-status');
+            const startBtn = document.getElementById('m1-start-btn');
+            
+            if(statusTxt) {
+                statusTxt.innerText = "Connected & Calibrated!";
+                statusTxt.style.color = "#00ffcc";
+            }
+            if(startBtn) {
+                startBtn.disabled = false;
+                startBtn.style.background = "#28a745";
+                startBtn.innerText = "START";
+            }
+            return;
+        }
+
+        if (document.getElementById('modal-over').style.display === "flex" || 
+            !document.getElementById('scr-game').classList.contains('active')) {
+            return; 
+        }
+
+        if (evt.data === "SIGNAL_WAIT") {
+            document.body.style.backgroundColor = "#4a0000";
+            document.getElementById('statusMsg').innerText = "WAIT...";
+        }
+        else if (evt.data === "SIGNAL_GO") {
+            document.body.style.backgroundColor = "#004a00";
+            document.getElementById('statusMsg').innerText = "KICK!";
+            playGoSound();
+        }
+        else if (evt.data.startsWith("TANK_REFILL") || evt.data.startsWith("TANK_START")) {
+            let duration = parseFloat(evt.data.split('|')[1]);
+            startTankCountdown(duration);
+            playGoSound(); 
+        }
+        else if (evt.data.startsWith("UPDATE")) {
+            let d = evt.data.split('|');
+            let kicks = d[1];
+            let pwr = parseInt(d[2]);
+            let rxn = d[3];
+            
+            document.getElementById('dispKicks').innerText = kicks;
+
+            if (currentModeName === "Reaction") {
+                document.getElementById('dispImpact').innerText = rxn + "ms";
+                document.getElementById('statusMsg').innerText = "SPEED: " + rxn + "ms";
             } else {
-                console.log(">>> Severing Ankle Alignment Sensor tracking loop...");
-                ws.send("DISABLE_ANKLE");
-                // Clear state positions safely on interface menu
-                angleDisplay.innerText = "0.00°";
-                alignmentText.innerText = "--";
-                alignmentText.className = "value";
+                document.getElementById('dispImpact').innerText = pwr;
             }
-        }
 
-        // Auto-initialize the interface channel when browser page launches
-        window.onload = function() {
-            initWebSocket();
-        };
-    </script>
-</body>
-</html>
+            if (currentModeName === "Sniper") {
+                let msg = document.getElementById('statusMsg');
+                if (pwr < pssThreshold) {
+                    msg.innerText = "TOO WEAK";
+                    msg.style.color = "#ff4444";
+                } else if (pwr >= pssThreshold && pwr < (pssThreshold + 100)) {
+                    msg.innerText = "PERFECT!";
+                    msg.style.color = "#00ffcc";
+                } else {
+                    msg.innerText = "OVERKILL";
+                    msg.style.color = "#ffcc00";
+                }
+            }
+            
+            if (d.length > 4) {
+                let angle = d[4];
+                let alignment = d[5]; 
+                let msg = document.getElementById('statusMsg');
+                
+                let alignColor = "#00ffcc";
+                if (alignment === "UNDER") alignColor = "#ffcc00";
+                if (alignment === "OVER") alignColor = "#ff3e3e";
+                
+                msg.innerHTML = `Impact: <span style="color:${alignColor}; font-weight:bold;">${alignment}</span> (${angle}° Turn)`;
+                msg.style.color = "#ffffff";
+                
+                sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
+            } else {
+                sessionKicks.push({p: pwr, r: rxn});
+            }
+        }    
+    };
+  }
+
+  function startMode1() {
+    isDNF = false;
+    let name = document.querySelector('#scr-settings-m1 .p-select').value;
+    let time = document.getElementById('m1-time').value || 30;
+    let kicks = document.getElementById('m1-kicks').value || 0;
+    
+    currentModeName = "Power"; 
+    sessionKicks = [];
+    
+    websocket.send(`M1|${name}|${time}|${kicks}`);
+    document.getElementById('dispName').innerText = name;
+    showScreen('scr-game');
+    startTimer(time);
+  }
+
+  function startMode2() {
+    isDNF = false;
+    let name = document.querySelector('#scr-settings-m2 .p-select').value;
+    let count = document.getElementById('m2-kicks').value || 10;
+    let min = document.getElementById('m2-min').value || 1;
+    let max = document.getElementById('m2-max').value || 3;
+    let windowVal = document.getElementById('m2-window').value || 2.0; 
+    
+    currentModeName = "Reaction";
+    sessionKicks = [];
+    
+    websocket.send(`M2|${name}|${count}|${min}|${max}|${windowVal}`);
+    document.getElementById('dispName').innerText = name;
+    document.getElementById('timer').innerText = "RXN";
+    showScreen('scr-game');
+  }
+
+  var pssThreshold = 0;
+
+ function startSniperMode() {
+    isDNF = false;
+    const userSelect = document.getElementById('m3-user-select');
+    const weightInput = document.getElementById('m3-target-weight');
+    const kicksInput = document.getElementById('m3-kicks');
+    const rangeDisp = document.getElementById('targetRangeDisp');
+
+    if (!userSelect || !weightInput || !kicksInput) {
+        console.error("Missing UI elements in Mode 3");
+        return;
+    }
+
+    let name = userSelect.value;
+    let weight = parseFloat(weightInput.value);
+    let kicks = kicksInput.value || 10;
+    
+    if (!weight) {
+        alert("Please enter a Target Weight (kg) first!");
+        return;
+    }
+
+    pssThreshold = Math.round((weight * 5) + 150);
+    let perfectMax = pssThreshold + 100;
+
+    currentModeName = "Sniper"; 
+    sessionKicks = [];
+    
+    document.getElementById('dispName').innerText = name + " [" + weight + "kg]";
+    document.getElementById('timer').innerText = pssThreshold;
+    
+    if(rangeDisp) {
+        rangeDisp.innerHTML = 
+            `Target Zone: <span style="color:#00ffcc">${pssThreshold} - ${perfectMax}</span><br>` +
+            `<small>Below ${pssThreshold}: No Score | Above ${perfectMax}: Overkill</small>`;
+    }
+    
+    document.getElementById('statusMsg').innerText = "CALIBRATED. START KICKING!";
+    document.getElementById('statusMsg').style.color = "#ffcc00";
+
+    websocket.send(`M3|${name}|${kicks}|${pssThreshold}`);
+    showScreen('scr-game');
+  }
+  
+  function startTankCountdown(seconds) {
+      clearInterval(tankInterval);
+      let timeLeft = seconds;
+      const timerDisp = document.getElementById('timer');
+      
+      tankInterval = setInterval(() => {
+          timeLeft -= 0.1;
+          timerDisp.innerText = timeLeft.toFixed(1); 
+          
+          if (timeLeft <= 1.0) {
+              timerDisp.style.color = "#ff3e3e"; 
+          } else {
+              timerDisp.style.color = "#00ffcc";
+          }
+
+          if (timeLeft <= 0) {
+              clearInterval(tankInterval);
+          }
+      }, 100);
+  }
+
+  function startTankMode() {
+    isDNF = false;
+    const weight = parseFloat(document.getElementById('m3-target-weight').value);
+    const user = document.getElementById('m3-user-select').value;
+
+    if (!weight) { alert("Enter weight first!"); return; }
+
+    pssThreshold = Math.round((weight * 5) + 150);
+    
+    currentModeName = "The Tank"; 
+    sessionKicks = []; 
+    
+    document.getElementById('dispName').innerText = "TANK: " + user;
+    startTankCountdown(3.0); 
+    
+    showScreen('scr-game');
+    websocket.send(`M3_TANK|${user}|${weight}`);
+  }
+
+  function getDB() { return JSON.parse(localStorage.getItem('paddleDB') || '{"profiles":[]}'); }
+  function saveDB(db) { localStorage.setItem('paddleDB', JSON.stringify(db)); }
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    
+    if (id === 'scr-menu') {
+        const volContainer = document.getElementById('volume-container');
+        if (volContainer) {
+            volContainer.style.display = audioCtx ? "block" : "none";
+        }
+    }
+
+    if (id === 'scr-settings-m1') {
+        document.getElementById('m1-use-ankle').checked = false;
+        document.getElementById('ankle-status').innerText = "Status: Offline";
+        document.getElementById('ankle-status').style.color = "#666";
+        
+        const startBtn = document.getElementById('m1-start-btn');
+        if(startBtn) {
+            startBtn.disabled = false;
+            startBtn.style.background = "#28a745";
+            startBtn.innerText = "START";
+        }
+    }
+    
+    if (id !== 'scr-game') {
+        document.body.style.backgroundColor = "#121212";
+        document.getElementById('targetRangeDisp').innerText = "";
+    }
+    
+    if (id === 'scr-game') {
+        document.getElementById('dispKicks').innerText = "0";
+        document.getElementById('dispImpact').innerText = "--";
+        document.getElementById('statusMsg').innerText = "GET READY...";
+        document.getElementById('statusMsg').style.color = "#ffffff"; 
+    }
+    
+    if(id.includes('settings')) updateDropdowns();
+  }
+
+  function updateDropdowns() {
+    const selects = document.querySelectorAll('.p-select');
+    selects.forEach(sel => {
+        sel.innerHTML = '<option value="Guest">-- Select Fighter --</option>';
+        getDB().profiles.forEach(p => {
+          let opt = document.createElement('option');
+          opt.value = opt.innerText = p.name;
+          sel.appendChild(opt);
+        });
+    });
+  }
+
+  function startTimer(s) {
+    let t = s;
+    document.getElementById('timer').innerText = t;
+    clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+      t--;
+      document.getElementById('timer').innerText = (t < 0) ? 0 : t;
+      if(t <= 0) clearInterval(countdownTimer);
+    }, 1000);
+  }
+
+  function endGame(premature = false) {
+    isDNF = premature; 
+    clearInterval(countdownTimer);
+    if(tankInterval) clearInterval(tankInterval);
+    
+    document.body.style.backgroundColor = "#121212";
+    saveToHistory();
+    
+    const modal = document.getElementById('modal-over');
+    const summary = document.getElementById('modal-summary');
+    
+    if (modal && summary) {
+        modal.style.display = "flex";
+        let maxP = sessionKicks.length ? Math.max(...sessionKicks.map(k => k.p)) : 0;
+        
+        if (isDNF) {
+            summary.innerHTML = `<span style='color:#ff3e3e; font-weight:bold;'>[DNF - PREMATURE END]</span><br>` +
+                                `<span style='color:#ffffff;'>Total Kicks: ${sessionKicks.length}<br>Max Power: ${maxP}</span>`;
+        } else {
+            summary.innerHTML = `<span style='color:#00ffcc; font-weight:bold;'>[SESSION COMPLETE!]</span><br>` +
+                                `<span style='color:#ffffff;'>Total Kicks: ${sessionKicks.length}<br>Max Power: ${maxP}</span>`;
+        }
+    } else {
+        viewFullLog();
+    }
+  }
+
+  function closeModal(targetScreen = 'scr-menu') { 
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.send("STOP_GAME");
+    }
+
+    clearInterval(countdownTimer);
+    clearInterval(tankInterval);
+
+    document.getElementById('modal-over').style.display = "none"; 
+    showScreen(targetScreen);
+  }
+
+  function viewFullLog(historicalMode = "") {
+    closeModal('scr-log');
+    
+    const list = document.getElementById('log-list');
+    const stats = document.getElementById('log-stats');
+    list.innerHTML = "";
+    
+    let displayMode = historicalMode || currentModeName; 
+
+    let sumP = sessionKicks.reduce((a, b) => a + b.p, 0);
+    let avgP = sessionKicks.length ? Math.round(sumP / sessionKicks.length) : 0;
+    
+    stats.innerHTML = `<div style="margin-bottom:10px; font-weight:bold; color:#ffcc00">Mode: ${displayMode}</div>
+      <strong>Avg Power:</strong> ${avgP} | <strong>Kicks:</strong> ${sessionKicks.length}`;
+
+    sessionKicks.forEach((k, i) => {
+      let line = `<span>Kick #${i+1}: </span><span style="color:#ff3e3e">Pwr: ${k.p}</span>`;
+      if(k.r > 0 && k.r !== "TIMEOUT") line += ` <span style="color:#00ffcc">Rxn: ${k.r}ms</span>`;
+      if(k.r === "TIMEOUT") line += ` <span style="color:#ff3e3e">TIMEOUT</span>`;
+      
+      if(k.ang !== null && k.ang !== undefined) {
+         let alignColor = k.align === "SQUARE" ? "#00ffcc" : (k.align === "UNDER" ? "#ffcc00" : "#ff3e3e");
+         line += ` | <span style="color:${alignColor}">${k.align} (${k.ang}°)</span>`;
+      }
+      list.innerHTML += `<div class="log-row">${line}</div>`;
+    });
+  }
+
+  function updateSensDisp(val) {
+      document.getElementById('sens-val').innerText = val;
+  }
+
+  function sendSensitivity(val) {
+      if (websocket && websocket.readyState === WebSocket.OPEN) {
+          websocket.send("SET_SENS|" + val);
+          localStorage.setItem('globalSensitivity', val);
+      }
+  }
+
+  function saveToHistory() {
+    const dispNameText = document.getElementById('dispName').innerText;
+    if(dispNameText === "Guest" || dispNameText === "") return;
+    
+    const db = getDB();
+    const workout = { 
+        date: new Date().toLocaleString(), 
+        mode: currentModeName,
+        kicks: sessionKicks.length, 
+        allKicks: JSON.parse(JSON.stringify(sessionKicks)), 
+        maxP: sessionKicks.length ? Math.max(...sessionKicks.map(k => k.p)) : 0,
+        dnf: isDNF 
+    };
+    
+    db.profiles.forEach(p => { 
+        if(dispNameText.includes(p.name)) { 
+            p.history.push(workout); 
+        } 
+    });
+    saveDB(db);
+  }
+
+  function openProfiles() {
+    const list = document.getElementById('profiles-list');
+    list.innerHTML = "";
+    const db = getDB();
+    if (db.profiles.length === 0) list.innerHTML = "<p style='color:#666;'>No profiles.</p>";
+    db.profiles.forEach((p, idx) => {
+      list.innerHTML += `<div class="stat-card" onclick="viewProfileDetails(${idx})" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+        <div style="text-align:left;"><strong>${p.name}</strong><br><small style="color:#666;">${p.history.length} Sessions</small></div>
+        <span style="color:#00ffcc;">View ></span></div>`;
+    });
+    showScreen('scr-profiles');
+  }
+
+  function viewProfileDetails(idx) {
+    const p = getDB().profiles[idx];
+    document.getElementById('det-name').innerText = p.name;
+    document.getElementById('det-bio').innerHTML = `<strong>DOB:</strong> ${p.dob || 'N/A'}<br>
+      <strong>Height:</strong> ${p.height}cm | <strong>Weight:</strong> ${p.weight}kg`;
+    
+    const hDiv = document.getElementById('det-history');
+    hDiv.innerHTML = "";
+
+    if (!p.history || p.history.length === 0) {
+        hDiv.innerHTML = "<p style='color:#666;'>No history.</p>";
+    } else {
+      [...p.history].reverse().forEach((h, revIdx) => {
+        const actualIdx = p.history.length - 1 - revIdx;
+        let avgP = (h.allKicks && h.allKicks.length) ? Math.round(h.allKicks.reduce((a,b) => a + b.p, 0) / h.allKicks.length) : 0;
+        let modeColor = h.mode === "Reaction" ? "#00ffcc" : "#ffcc00";
+        let dnfLabel = h.dnf ? "<span style='color:#ff3e3e; font-weight:bold;'> (DNF)</span>" : "";
+
+        let sessionHtml = `
+        <div class="stat-card" onclick='showPastSession(${idx}, ${actualIdx})' style="cursor:pointer; text-align:left; font-size:0.85rem; border-left: 4px solid ${modeColor};">
+          <div style="float:right; color:${modeColor};">View ></div>
+          <span style="color:${modeColor}; font-weight:bold;">[${h.mode || 'Power'}]</span> 
+          <span style="color:#eee;">${h.date}</span>${dnfLabel}<br>
+          <span style="color:#ff3e3e">Max Pwr: ${h.maxP}</span> | Kicks: ${h.kicks} | Avg: ${avgP}
+        </div>`;
+        
+        hDiv.insertAdjacentHTML('beforeend', sessionHtml);
+      });
+    }
+    showScreen('scr-profile-detail');
+  }
+
+  function showPastSession(profileIdx, historyIdx) {
+    const p = getDB().profiles[profileIdx];
+    const h = p.history[historyIdx];
+    sessionKicks = h.allKicks;
+    viewFullLog(h.mode);
+    const backBtn = document.querySelector('#scr-log button.secondary');
+    backBtn.onclick = () => viewProfileDetails(profileIdx);
+    backBtn.innerText = "BACK TO PROFILE";
+  }
+
+  function saveProfile() {
+    const n = document.getElementById('p-name').value;
+    const db = getDB();
+    db.profiles.push({ name: n, dob: document.getElementById('p-dob').value, height: document.getElementById('p-h').value, weight: document.getElementById('p-w').value, history: [] });
+    saveDB(db);
+    openProfiles();
+  }
+
+ function manualEndSession() {
+    if (confirm("End session now and save results?")) {
+        if (websocket && websocket.readyState === WebSocket.OPEN) {
+            websocket.send("STOP_GAME");
+        }
+        clearInterval(countdownTimer);
+        clearInterval(tankInterval);
+        endGame(true); 
+    }
+  }
+
+  function toggleAnkleDiscovery(checked) {
+    const statusTxt = document.getElementById('ankle-status');
+    const startBtn = document.getElementById('m1-start-btn');
+    
+    if (checked) {
+        ankleConnected = false; 
+        statusTxt.innerText = "Searching for Ankle Sensor...";
+        statusTxt.style.color = "#ffcc00";
+        startBtn.disabled = true;
+        startBtn.style.background = "#444";
+        startBtn.innerText = "WAITING FOR PAIRING...";
+        
+        if (websocket && websocket.readyState === WebSocket.OPEN) {
+            websocket.send("SCAN_ANKLE|1");
+        }
+    } else {
+        ankleConnected = false;
+        statusTxt.innerText = "Status: Offline";
+        statusTxt.style.color = "#666";
+        startBtn.disabled = false;
+        startBtn.style.background = "#28a745";
+        startBtn.innerText = "START";
+        
+        if (websocket && websocket.readyState === WebSocket.OPEN) {
+            websocket.send("SCAN_ANKLE|0");
+        }
+    }
+  }
+
+  window.onload = () => {
+      initWS();
+      let savedSens = localStorage.getItem('globalSensitivity') || 350;
+      document.getElementById('sens-slider').value = savedSens;
+      document.getElementById('sens-val').innerText = savedSens;
+  };
+</script></body></html>
