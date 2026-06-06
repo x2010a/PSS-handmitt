@@ -253,111 +253,100 @@
         websocket.send("SET_SENS|" + savedSens);
     };
 
-    websocket.onmessage = (evt) => {
-      if (evt.data === "OVER") { 
-            playSuccessTune(); 
-            endGame(false); 
-            if(tankInterval) clearInterval(tankInterval);
-            return; 
+    websocket.onmessage = (evt) => {// 1. Handle legacy standalone commands safely
+    if (evt.data === "OVER") { 
+        playSuccessTune(); 
+        endGame(false); 
+        if(tankInterval) clearInterval(tankInterval);
+        return; 
+    }
+    if (evt.data === "TRIGGER_HIT") {
+        playHitSound();
+        return;
+    }
+    if (evt.data === "SIGNAL_WAIT") {
+        document.body.style.backgroundColor = "#4a0000";
+        document.getElementById('statusMsg').innerText = "WAIT...";
+        return;
+    }
+    if (evt.data === "SIGNAL_GO") {
+        document.body.style.backgroundColor = "#004a00";
+        document.getElementById('statusMsg').innerText = "KICK!";
+        playGoSound();
+        return;
+    }
+    if (evt.data.startsWith("TANK_REFILL") || evt.data.startsWith("TANK_START")) {
+        let duration = parseFloat(evt.data.split('|')[1]);
+        startTankCountdown(duration);
+        playGoSound(); 
+        return;
+    }
+
+    // 2. PARSE NEW JSON HIT DATA PACKETS
+    try {
+        const data = JSON.parse(evt.data);
+        
+        // Extract parsed properties
+        let device = data.device;    // "LEFT_MITT", "RIGHT_MITT", or "ANKLE"
+        let pwr = parseInt(data.power);
+        let angle = parseFloat(data.angle);
+        
+        // Calculate dynamic values for your visual logs (mocking legacy array placement)
+        let kicks = sessionKicks.length + 1;
+        let rxn = 0; // Handled locally if running Mode 2 timing structures
+        
+        // Update basic counts on UI
+        document.getElementById('dispKicks').innerText = kicks;
+
+        // Route UI feedback maps based on game type
+        if (currentModeName === "Reaction") {
+            document.getElementById('dispImpact').innerText = "HIT!";
+            document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
+        } else {
+            document.getElementById('dispImpact').innerText = pwr;
+        }
+
+        // Run your PSS Sniper target zone algorithms
+        if (currentModeName === "Sniper") {
+            let msg = document.getElementById('statusMsg');
+            if (pwr < pssThreshold) {
+                msg.innerText = "TOO WEAK";
+                msg.style.color = "#ff4444";
+            } else if (pwr >= pssThreshold && pwr < (pssThreshold + 100)) {
+                msg.innerText = "PERFECT!";
+                msg.style.color = "#00ffcc";
+            } else {
+                msg.innerText = "OVERKILL";
+                msg.style.color = "#ffcc00";
+            }
         }
         
-        if (evt.data === "TRIGGER_HIT") {
-            playHitSound();
-            return;
-        }
-
-        // MODIFIED: Intermediate state managing text strings layout maps
-        if (evt.data === "ANKLE_FOUND") {
-            const statusTxt = document.getElementById('ankle-status');
-            if (statusTxt) {
-                statusTxt.innerText = "Calibrating Gyro... Stand completely still!";
-                statusTxt.style.color = "#e67e22"; // Bright Orange
-            }
-            return;
-        }
-
-        if (evt.data === "ANKLE_PAIRED") {
-            ankleConnected = true;
-            const statusTxt = document.getElementById('ankle-status');
-            const startBtn = document.getElementById('m1-start-btn');
+        // Handle Ankle angle alignment tracking logic
+        if (device === "ANKLE" || angle > 0) {
+            let alignment = "SQUARE";
+            if (angle < -10) alignment = "UNDER";
+            if (angle > 10) alignment = "OVER";
             
-            if(statusTxt) {
-                statusTxt.innerText = "Connected & Calibrated!";
-                statusTxt.style.color = "#00ffcc";
-            }
-            if(startBtn) {
-                startBtn.disabled = false;
-                startBtn.style.background = "#28a745";
-                startBtn.innerText = "START";
-            }
-            return;
-        }
-
-        if (document.getElementById('modal-over').style.display === "flex" || 
-            !document.getElementById('scr-game').classList.contains('active')) {
-            return; 
-        }
-
-        if (evt.data === "SIGNAL_WAIT") {
-            document.body.style.backgroundColor = "#4a0000";
-            document.getElementById('statusMsg').innerText = "WAIT...";
-        }
-        else if (evt.data === "SIGNAL_GO") {
-            document.body.style.backgroundColor = "#004a00";
-            document.getElementById('statusMsg').innerText = "KICK!";
-            playGoSound();
-        }
-        else if (evt.data.startsWith("TANK_REFILL") || evt.data.startsWith("TANK_START")) {
-            let duration = parseFloat(evt.data.split('|')[1]);
-            startTankCountdown(duration);
-            playGoSound(); 
-        }
-        else if (evt.data.startsWith("UPDATE")) {
-            let d = evt.data.split('|');
-            let kicks = d[1];
-            let pwr = parseInt(d[2]);
-            let rxn = d[3];
+            let alignColor = "#00ffcc";
+            if (alignment === "UNDER") alignColor = "#ffcc00";
+            if (alignment === "OVER") alignColor = "#ff3e3e";
             
-            document.getElementById('dispKicks').innerText = kicks;
-
-            if (currentModeName === "Reaction") {
-                document.getElementById('dispImpact').innerText = rxn + "ms";
-                document.getElementById('statusMsg').innerText = "SPEED: " + rxn + "ms";
-            } else {
-                document.getElementById('dispImpact').innerText = pwr;
-            }
-
-            if (currentModeName === "Sniper") {
-                let msg = document.getElementById('statusMsg');
-                if (pwr < pssThreshold) {
-                    msg.innerText = "TOO WEAK";
-                    msg.style.color = "#ff4444";
-                } else if (pwr >= pssThreshold && pwr < (pssThreshold + 100)) {
-                    msg.innerText = "PERFECT!";
-                    msg.style.color = "#00ffcc";
-                } else {
-                    msg.innerText = "OVERKILL";
-                    msg.style.color = "#ffcc00";
-                }
-            }
+            let msg = document.getElementById('statusMsg');
+            msg.innerHTML = `Impact: <span style="color:${alignColor}; font-weight:bold;">${alignment}</span> (${angle}° Turn)`;
+            msg.style.color = "#ffffff";
             
-            if (d.length > 4) {
-                let angle = d[4];
-                let alignment = d[5]; 
-                let msg = document.getElementById('statusMsg');
-                
-                let alignColor = "#00ffcc";
-                if (alignment === "UNDER") alignColor = "#ffcc00";
-                if (alignment === "OVER") alignColor = "#ff3e3e";
-                
-                msg.innerHTML = `Impact: <span style="color:${alignColor}; font-weight:bold;">${alignment}</span> (${angle}° Turn)`;
-                msg.style.color = "#ffffff";
-                
-                sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
-            } else {
-                sessionKicks.push({p: pwr, r: rxn});
-            }
-        }    
+            sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
+        } else {
+            // Standard plain paddle target impact storage
+            sessionKicks.push({p: pwr, r: rxn});
+        }
+        
+        // Fire local client sound trigger to match hardware confirmation
+        playHitSound();
+
+    } catch (e) {
+        console.log("Non-JSON network flag or legacy string intercepted:", evt.data);
+    }
     };
   }
 
