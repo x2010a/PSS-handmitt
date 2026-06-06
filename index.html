@@ -253,7 +253,8 @@
         websocket.send("SET_SENS|" + savedSens);
     };
 
-    websocket.onmessage = (evt) => {// 1. Handle legacy standalone commands safely
+    websocket.onmessage = (evt) => {
+    // 1. Handle background hardware commands safely
     if (evt.data === "OVER") { 
         playSuccessTune(); 
         endGame(false); 
@@ -282,31 +283,24 @@
         return;
     }
 
-    // 2. PARSE NEW JSON HIT DATA PACKETS
+    // 2. PARSE THE PACKET OBJECT
     try {
         const data = JSON.parse(evt.data);
-        
-        // Extract parsed properties
-        let device = data.device;    // "LEFT_MITT", "RIGHT_MITT", or "ANKLE"
+        let device = data.device;    
         let pwr = parseInt(data.power);
         let angle = parseFloat(data.angle);
+        let rxn = 0; 
         
-        // Calculate dynamic values for your visual logs (mocking legacy array placement)
-        let kicks = sessionKicks.length + 1;
-        let rxn = 0; // Handled locally if running Mode 2 timing structures
-        
-        // Update basic counts on UI
-        document.getElementById('dispKicks').innerText = kicks;
-
-        // Route UI feedback maps based on game type
+        // Handle local reaction calculation if running Mode 2 timing structures
         if (currentModeName === "Reaction") {
+            // If you have active reaction calculations, you can insert them here
             document.getElementById('dispImpact').innerText = "HIT!";
             document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
         } else {
             document.getElementById('dispImpact').innerText = pwr;
         }
 
-        // Run your PSS Sniper target zone algorithms
+        // Run your PSS Sniper target calculations
         if (currentModeName === "Sniper") {
             let msg = document.getElementById('statusMsg');
             if (pwr < pssThreshold) {
@@ -321,32 +315,45 @@
             }
         }
         
-        // Handle Ankle angle alignment tracking logic
+        // Store the hit array logs
         if (device === "ANKLE" || angle > 0) {
-            let alignment = "SQUARE";
-            if (angle < -10) alignment = "UNDER";
-            if (angle > 10) alignment = "OVER";
-            
-            let alignColor = "#00ffcc";
-            if (alignment === "UNDER") alignColor = "#ffcc00";
-            if (alignment === "OVER") alignColor = "#ff3e3e";
-            
-            let msg = document.getElementById('statusMsg');
-            msg.innerHTML = `Impact: <span style="color:${alignColor}; font-weight:bold;">${alignment}</span> (${angle}° Turn)`;
-            msg.style.color = "#ffffff";
-            
+            let alignment = (angle >= -10.0 && angle <= 10.0) ? "SQUARE" : (angle < -10.0 ? "OVER" : "UNDER");
             sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
         } else {
-            // Standard plain paddle target impact storage
             sessionKicks.push({p: pwr, r: rxn});
         }
+
+        // Update total kick counter on the screen interface dynamically
+        let totalKicksRegistered = sessionKicks.length;
+        document.getElementById('dispKicks').innerText = totalKicksRegistered;
         
-        // Fire local client sound trigger to match hardware confirmation
+        // Fire audio feedback on connection trigger
         playHitSound();
 
-    } catch (e) {
-        console.log("Non-JSON network flag or legacy string intercepted:", evt.data);
-    }
+        // =========================================================================
+        // THE ADDITION: CHIPLESS SESSION MANAGER LIMIT CHECKER
+        // =========================================================================
+        // Read whatever target number the user typed into the input field at startup
+        let selectedTargetKicks = 0;
+        if (currentModeName === "Power") {
+            selectedTargetKicks = parseInt(document.getElementById('m1-kicks').value) || 0;
+        } else if (currentModeName === "Reaction") {
+            selectedTargetKicks = parseInt(document.getElementById('m2-kicks').value) || 0;
+        } else if (currentModeName === "Sniper") {
+            selectedTargetKicks = parseInt(document.getElementById('m3-kicks').value) || 0;
+        }
+
+        // If a limit was set, and our log reaches it -> Auto-Trigger Game Over!
+        if (selectedTargetKicks > 0 && totalKicksRegistered >= selectedTargetKicks) {
+            console.log(`>>> Target achieved: ${totalKicksRegistered}/${selectedTargetKicks}. Triggering EndGame Sequence.`);
+            playSuccessTune();
+            endGame(false); // Smoothly handles modal summary generation and profile saves
+        }
+        // =========================================================================
+
+      } catch (e) {
+          console.log("Non-JSON network flag or legacy string intercepted:", evt.data);
+      }
     };
   }
 
