@@ -531,11 +531,23 @@
   function startTimer(s) {
     let t = s;
     document.getElementById('timer').innerText = t;
-    clearInterval(countdownTimer);
+    
+    // SAFETY: Clear any older running timer first to prevent duplicates
+    clearInterval(countdownTimer); 
+    
+    // THE CRUCIAL FIX: Assign the interval directly to your global variable!
     countdownTimer = setInterval(() => {
       t--;
       document.getElementById('timer').innerText = (t < 0) ? 0 : t;
-      if(t <= 0) clearInterval(countdownTimer);
+      
+      if(t <= 0) {
+          clearInterval(countdownTimer);
+          // Only trigger automatic time-out end game if the game screen is still up!
+          if (document.getElementById('scr-game').classList.contains('active') && 
+              document.getElementById('modal-over').style.display !== "flex") {
+              endGame(false); 
+          }
+      }
     }, 1000);
   }
 
