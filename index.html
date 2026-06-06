@@ -1,18 +1,4 @@
-I see exactly what is happening! This is the other half of our menu protection issue.
 
-Because your `startMode1()`, `startMode2()`, and `startSniperMode()` functions clear the `sessionKicks = []` array and open the game screen **before** the user actually lands a kick, the browser sets `currentModeName` to `"Power"`, `"Reaction"`, or `"Sniper"`.
-
-However, if your fighter has their foot resting on the pad while standing there waiting for the countdown timer, or if ambient foam pressure shifts the sensor voltage right as the screen transitions, your `websocket.onmessage` function immediately captures those background values as real kicks. `sessionKicks` fills up before the countdown can even reach zero!
-
-To block ambient data from leaking in **before the workout officially kicks off**, we need an explicit tracking flag called `isRoundActive`.
-
-Here is your fully updated, ready-to-paste dashboard code file containing the layout blocks synced to a rigid start flag state.
-
----
-
-### Overwrite Your File with This Complete Version:
-
-```html
 <!DOCTYPE html><html><head><title>Smart Paddle V1</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
