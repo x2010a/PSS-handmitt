@@ -290,7 +290,13 @@
         let pwr = parseInt(data.power);
         let angle = parseFloat(data.angle);
         let rxn = 0; 
-        
+
+        // THE MENU PROTECTION SHIELD: Drop packet if not actively inside a game mode
+        if (currentModeName === "") {
+              console.log("System Idle: Ignoring ambient hardware hits.");
+              return; 
+          }
+      
         // Handle local reaction calculation if running Mode 2 timing structures
         if (currentModeName === "Reaction") {
             // If you have active reaction calculations, you can insert them here
@@ -559,6 +565,9 @@
     document.body.style.backgroundColor = "#121212";
     saveToHistory();
     
+    // Clear the active game mode tracking so menu hits are ignored!
+    currentModeName = ""; 
+    
     const modal = document.getElementById('modal-over');
     const summary = document.getElementById('modal-summary');
     
@@ -585,6 +594,9 @@
 
     clearInterval(countdownTimer);
     clearInterval(tankInterval);
+    
+    // Safety lock: Ensure mode tracker is totally wiped when exiting back to menu frames
+    currentModeName = ""; 
 
     document.getElementById('modal-over').style.display = "none"; 
     showScreen(targetScreen);
