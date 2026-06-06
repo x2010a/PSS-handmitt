@@ -1,3 +1,18 @@
+I see exactly what is happening! This is the other half of our menu protection issue.
+
+Because your `startMode1()`, `startMode2()`, and `startSniperMode()` functions clear the `sessionKicks = []` array and open the game screen **before** the user actually lands a kick, the browser sets `currentModeName` to `"Power"`, `"Reaction"`, or `"Sniper"`.
+
+However, if your fighter has their foot resting on the pad while standing there waiting for the countdown timer, or if ambient foam pressure shifts the sensor voltage right as the screen transitions, your `websocket.onmessage` function immediately captures those background values as real kicks. `sessionKicks` fills up before the countdown can even reach zero!
+
+To block ambient data from leaking in **before the workout officially kicks off**, we need an explicit tracking flag called `isRoundActive`.
+
+Here is your fully updated, ready-to-paste dashboard code file containing the layout blocks synced to a rigid start flag state.
+
+---
+
+### Overwrite Your File with This Complete Version:
+
+```html
 <!DOCTYPE html><html><head><title>Smart Paddle V1</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
@@ -168,7 +183,11 @@
   let tankInterval;
   let isDNF = false; 
   let ankleConnected = false;
+  var pssThreshold = 0;
   
+  // THE NEW MASTER SAFE CONTROL VALVE FLAG
+  var isRoundActive = false; 
+
   var audioCtx = null;
   var masterGainNode = null;
 
@@ -254,111 +273,103 @@
     };
 
     websocket.onmessage = (evt) => {
-    // 1. Handle background hardware commands safely
-    if (evt.data === "OVER") { 
-        playSuccessTune(); 
-        endGame(false); 
-        if(tankInterval) clearInterval(tankInterval);
-        return; 
-    }
-    if (evt.data === "TRIGGER_HIT") {
-        playHitSound();
-        return;
-    }
-    if (evt.data === "SIGNAL_WAIT") {
-        document.body.style.backgroundColor = "#4a0000";
-        document.getElementById('statusMsg').innerText = "WAIT...";
-        return;
-    }
-    if (evt.data === "SIGNAL_GO") {
-        document.body.style.backgroundColor = "#004a00";
-        document.getElementById('statusMsg').innerText = "KICK!";
-        playGoSound();
-        return;
-    }
-    if (evt.data.startsWith("TANK_REFILL") || evt.data.startsWith("TANK_START")) {
-        let duration = parseFloat(evt.data.split('|')[1]);
-        startTankCountdown(duration);
-        playGoSound(); 
-        return;
-    }
+      if (evt.data === "OVER") { 
+          playSuccessTune(); 
+          endGame(false); 
+          if(tankInterval) clearInterval(tankInterval);
+          return; 
+      }
+      if (evt.data === "TRIGGER_HIT") {
+          if (isRoundActive) playHitSound();
+          return;
+      }
+      if (evt.data === "SIGNAL_WAIT") {
+          document.body.style.backgroundColor = "#4a0000";
+          document.getElementById('statusMsg').innerText = "WAIT...";
+          return;
+      }
+      if (evt.data === "SIGNAL_GO") {
+          document.body.style.backgroundColor = "#004a00";
+          document.getElementById('statusMsg').innerText = "KICK!";
+          playGoSound();
+          return;
+      }
+      if (evt.data.startsWith("TANK_REFILL") || evt.data.startsWith("TANK_START")) {
+          let duration = parseFloat(evt.data.split('|')[1]);
+          startTankCountdown(duration);
+          playGoSound(); 
+          return;
+      }
 
-    // 2. PARSE THE PACKET OBJECT
-    try {
-        const data = JSON.parse(evt.data);
-        let device = data.device;    
-        let pwr = parseInt(data.power);
-        let angle = parseFloat(data.angle);
-        let rxn = 0; 
+      if (document.getElementById('modal-over').style.display === "flex" || 
+          !document.getElementById('scr-game').classList.contains('active')) {
+          return; 
+      }
 
-        // THE MENU PROTECTION SHIELD: Drop packet if not actively inside a game mode
-        if (currentModeName === "") {
-              console.log("System Idle: Ignoring ambient hardware hits.");
+      try {
+          const data = JSON.parse(evt.data);
+          let device = data.device;    
+          let pwr = parseInt(data.power);
+          let angle = parseFloat(data.angle);
+          let rxn = 0; 
+
+          // =========================================================================
+          // DUAL-GATE SECURITY COUPLING: Drops data if completely out of round limits
+          // =========================================================================
+          if (currentModeName === "" || !isRoundActive) {
+              console.log("Ambient sensor impact blocked. Round hasn't started yet.");
               return; 
           }
-      
-        // Handle local reaction calculation if running Mode 2 timing structures
-        if (currentModeName === "Reaction") {
-            // If you have active reaction calculations, you can insert them here
-            document.getElementById('dispImpact').innerText = "HIT!";
-            document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
-        } else {
-            document.getElementById('dispImpact').innerText = pwr;
-        }
+          // =========================================================================
+          
+          if (currentModeName === "Reaction") {
+              document.getElementById('dispImpact').innerText = "HIT!";
+              document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
+          } else {
+              document.getElementById('dispImpact').innerText = pwr;
+          }
 
-        // Run your PSS Sniper target calculations
-        if (currentModeName === "Sniper") {
-            let msg = document.getElementById('statusMsg');
-            if (pwr < pssThreshold) {
-                msg.innerText = "TOO WEAK";
-                msg.style.color = "#ff4444";
-            } else if (pwr >= pssThreshold && pwr < (pssThreshold + 100)) {
-                msg.innerText = "PERFECT!";
-                msg.style.color = "#00ffcc";
-            } else {
-                msg.innerText = "OVERKILL";
-                msg.style.color = "#ffcc00";
-            }
-        }
-        
-        // Store the hit array logs
-        if (device === "ANKLE" || angle > 0) {
-            let alignment = (angle >= -10.0 && angle <= 10.0) ? "SQUARE" : (angle < -10.0 ? "OVER" : "UNDER");
-            sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
-        } else {
-            sessionKicks.push({p: pwr, r: rxn});
-        }
+          if (currentModeName === "Sniper") {
+              let msg = document.getElementById('statusMsg');
+              if (pwr < pssThreshold) {
+                  msg.innerText = "TOO WEAK";
+                  msg.style.color = "#ff4444";
+              } else if (pwr >= pssThreshold && pwr < (pssThreshold + 100)) {
+                  msg.innerText = "PERFECT!";
+                  msg.style.color = "#00ffcc";
+              } else {
+                  msg.innerText = "OVERKILL";
+                  msg.style.color = "#ffcc00";
+              }
+          }
+          
+          if (device === "ANKLE" || angle > 0) {
+              let alignment = (angle >= -10.0 && angle <= 10.0) ? "SQUARE" : (angle < -10.0 ? "OVER" : "UNDER");
+              sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
+          } else {
+              sessionKicks.push({p: pwr, r: rxn});
+          }
 
-        // Update total kick counter on the screen interface dynamically
-        let totalKicksRegistered = sessionKicks.length;
-        document.getElementById('dispKicks').innerText = totalKicksRegistered;
-        
-        // Fire audio feedback on connection trigger
-        playHitSound();
+          let totalKicksRegistered = sessionKicks.length;
+          document.getElementById('dispKicks').innerText = totalKicksRegistered;
+          playHitSound();
 
-        // =========================================================================
-        // THE ADDITION: CHIPLESS SESSION MANAGER LIMIT CHECKER
-        // =========================================================================
-        // Read whatever target number the user typed into the input field at startup
-        let selectedTargetKicks = 0;
-        if (currentModeName === "Power") {
-            selectedTargetKicks = parseInt(document.getElementById('m1-kicks').value) || 0;
-        } else if (currentModeName === "Reaction") {
-            selectedTargetKicks = parseInt(document.getElementById('m2-kicks').value) || 0;
-        } else if (currentModeName === "Sniper") {
-            selectedTargetKicks = parseInt(document.getElementById('m3-kicks').value) || 0;
-        }
+          let selectedTargetKicks = 0;
+          if (currentModeName === "Power") {
+              selectedTargetKicks = parseInt(document.getElementById('m1-kicks').value) || 0;
+          } else if (currentModeName === "Reaction") {
+              selectedTargetKicks = parseInt(document.getElementById('m2-kicks').value) || 0;
+          } else if (currentModeName === "Sniper") {
+              selectedTargetKicks = parseInt(document.getElementById('m3-kicks').value) || 0;
+          }
 
-        // If a limit was set, and our log reaches it -> Auto-Trigger Game Over!
-        if (selectedTargetKicks > 0 && totalKicksRegistered >= selectedTargetKicks) {
-            console.log(`>>> Target achieved: ${totalKicksRegistered}/${selectedTargetKicks}. Triggering EndGame Sequence.`);
-            playSuccessTune();
-            endGame(false); // Smoothly handles modal summary generation and profile saves
-        }
-        // =========================================================================
+          if (selectedTargetKicks > 0 && totalKicksRegistered >= selectedTargetKicks) {
+              playSuccessTune();
+              endGame(false); 
+          }
 
       } catch (e) {
-          console.log("Non-JSON network flag or legacy string intercepted:", evt.data);
+          console.log("Non-JSON string caught:", evt.data);
       }
     };
   }
@@ -371,6 +382,7 @@
     
     currentModeName = "Power"; 
     sessionKicks = [];
+    isRoundActive = true; // Valve open!
     
     websocket.send(`M1|${name}|${time}|${kicks}`);
     document.getElementById('dispName').innerText = name;
@@ -388,6 +400,7 @@
     
     currentModeName = "Reaction";
     sessionKicks = [];
+    isRoundActive = true; // Valve open!
     
     websocket.send(`M2|${name}|${count}|${min}|${max}|${windowVal}`);
     document.getElementById('dispName').innerText = name;
@@ -395,19 +408,14 @@
     showScreen('scr-game');
   }
 
-  var pssThreshold = 0;
-
- function startSniperMode() {
+  function startSniperMode() {
     isDNF = false;
     const userSelect = document.getElementById('m3-user-select');
     const weightInput = document.getElementById('m3-target-weight');
     const kicksInput = document.getElementById('m3-kicks');
     const rangeDisp = document.getElementById('targetRangeDisp');
 
-    if (!userSelect || !weightInput || !kicksInput) {
-        console.error("Missing UI elements in Mode 3");
-        return;
-    }
+    if (!userSelect || !weightInput || !kicksInput) return;
 
     let name = userSelect.value;
     let weight = parseFloat(weightInput.value);
@@ -423,6 +431,7 @@
 
     currentModeName = "Sniper"; 
     sessionKicks = [];
+    isRoundActive = true; // Valve open!
     
     document.getElementById('dispName').innerText = name + " [" + weight + "kg]";
     document.getElementById('timer').innerText = pssThreshold;
@@ -472,6 +481,7 @@
     
     currentModeName = "The Tank"; 
     sessionKicks = []; 
+    isRoundActive = true; // Valve open!
     
     document.getElementById('dispName').innerText = "TANK: " + user;
     startTankCountdown(3.0); 
@@ -537,18 +547,14 @@
   function startTimer(s) {
     let t = s;
     document.getElementById('timer').innerText = t;
-    
-    // SAFETY: Clear any older running timer first to prevent duplicates
     clearInterval(countdownTimer); 
     
-    // THE CRUCIAL FIX: Assign the interval directly to your global variable!
     countdownTimer = setInterval(() => {
       t--;
       document.getElementById('timer').innerText = (t < 0) ? 0 : t;
       
       if(t <= 0) {
           clearInterval(countdownTimer);
-          // Only trigger automatic time-out end game if the game screen is still up!
           if (document.getElementById('scr-game').classList.contains('active') && 
               document.getElementById('modal-over').style.display !== "flex") {
               endGame(false); 
@@ -565,8 +571,9 @@
     document.body.style.backgroundColor = "#121212";
     saveToHistory();
     
-    // Clear the active game mode tracking so menu hits are ignored!
+    // Shut down the valves completely
     currentModeName = ""; 
+    isRoundActive = false; 
     
     const modal = document.getElementById('modal-over');
     const summary = document.getElementById('modal-summary');
@@ -595,8 +602,8 @@
     clearInterval(countdownTimer);
     clearInterval(tankInterval);
     
-    // Safety lock: Ensure mode tracker is totally wiped when exiting back to menu frames
     currentModeName = ""; 
+    isRoundActive = false; // Force safety block
 
     document.getElementById('modal-over').style.display = "none"; 
     showScreen(targetScreen);
@@ -773,3 +780,5 @@
       document.getElementById('sens-val').innerText = savedSens;
   };
 </script></body></html>
+
+```
