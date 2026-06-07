@@ -641,25 +641,47 @@
   }
 
   function saveToHistory() {
-    const dispNameText = document.getElementById('dispName').innerText;
-    if(dispNameText === "Guest" || dispNameText === "" || dispNameText.startsWith("TANK:")) return;
+    let dispNameText = document.getElementById('dispName').innerText.trim();
+    
+    // 1. If it's a Guest or empty string, do not log to database profiles
+    if(dispNameText === "Guest" || dispNameText === "") return;
+    
+    // 2. CLEANSE THE STRING: Strip away any custom layout wrappers or mode decorators
+    if (dispNameText.startsWith("TANK: ")) {
+        dispNameText = dispNameText.replace("TANK: ", ""); // Remove Tank prefix
+    }
+    if (dispNameText.includes("[")) {
+        dispNameText = dispNameText.split("[")[0].trim(); // Strip away " [87kg]" bracket text
+    }
     
     const db = getDB();
+    let profileFound = false;
+
+    // 3. Construct your precision session workout history object matching your current save metrics
     const workout = { 
         date: new Date().toLocaleString(), 
-        mode: currentModeName,
+        mode: currentModeName || "Reaction Mode",
         kicks: sessionKicks.length, 
         allKicks: JSON.parse(JSON.stringify(sessionKicks)), 
         maxP: sessionKicks.length ? Math.max(...sessionKicks.map(k => k.p)) : 0,
         dnf: isDNF 
     };
     
+    // 4. Match against the cleansed profile name string precisely
     db.profiles.forEach(p => { 
-        if(dispNameText.includes(p.name)) { 
+        if(p.name.trim() === dispNameText) { 
+            if (!p.history) p.history = []; // Safety check for older profiles
             p.history.push(workout); 
+            profileFound = true;
+            console.log(`[DATABASE] Session logged successfully under profile: ${p.name}`);
         } 
     });
-    saveDB(db);
+    
+    if (profileFound) {
+        saveDB(db); // Commit write to browser LocalStorage cache engine
+    } else {
+        console.log(`[DATABASE ERROR] Could not map cleansed name "${dispNameText}" to an existing profile record.`);
+    }
   }
 
   function openProfiles() {
