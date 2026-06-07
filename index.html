@@ -259,100 +259,103 @@
     };
 
     websocket.onmessage = (evt) => {
-      if (evt.data === "OVER") { 
-          playSuccessTune(); 
-          endGame(false); 
-          if(tankInterval) clearInterval(tankInterval);
-          return; 
-      }
-      if (evt.data === "TRIGGER_HIT") {
-          if (isRoundActive) playHitSound();
-          return;
-      }
-      if (evt.data === "SIGNAL_WAIT") {
-          document.body.style.backgroundColor = "#4a0000";
-          document.getElementById('statusMsg').innerText = "WAIT...";
-          return;
-      }
-      if (evt.data === "SIGNAL_GO") {
-          document.body.style.backgroundColor = "#004a00";
-          document.getElementById('statusMsg').innerText = "KICK!";
-          playGoSound();
-          return;
-      }
-      if (evt.data.startsWith("TANK_REFILL") || evt.data.startsWith("TANK_START")) {
-          let duration = parseFloat(evt.data.split('|')[1]);
-          startTankCountdown(duration);
-          playGoSound(); 
-          return;
-      }
+    // 1. HANDLE SYSTEM ALERTS (These must ALWAYS pass through, even if modal is open)
+    if (evt.data === "OVER") { 
+        playSuccessTune(); 
+        
+        clearInterval(countdownTimer);
+        if (tankInterval) clearInterval(tankInterval);
+        clearTimeout(reactionTimeout); // Safety baseline inclusion
+        
+        currentModeName = ""; 
+        isRoundActive = false; 
 
-      if (document.getElementById('modal-over').style.display === "flex" || 
-          !document.getElementById('scr-game').classList.contains('active')) {
-          return; 
-      }
+        endGame(false); 
+        return; 
+    }
+    if (evt.data === "TRIGGER_HIT") {
+        if (isRoundActive) playHitSound();
+        return;
+    }
+    if (evt.data === "SIGNAL_WAIT") {
+        document.body.style.backgroundColor = "#4a0000";
+        document.getElementById('statusMsg').innerText = "WAIT...";
+        return;
+    }
+    if (evt.data === "SIGNAL_GO") {
+        document.body.style.backgroundColor = "#004a00";
+        document.getElementById('statusMsg').innerText = "KICK!";
+        playGoSound();
+        return;
+    }
+    if (evt.data.startsWith("TANK_REFILL") || evt.data.startsWith("TANK_START")) {
+        let duration = parseFloat(evt.data.split('|')[1]);
+        startTankCountdown(duration);
+        playGoSound(); 
+        return;
+    }
 
-      try {
-          const data = JSON.parse(evt.data);
-          let device = data.device;    
-          let pwr = parseInt(data.power);
-          let angle = parseFloat(data.angle);
-          let rxn = 0; 
+    // 2. STICKY POPUP SHIELD (Placed exactly here!)
+    // If the modal is open or the game screen is inactive, completely ignore raw sensor kick calculations
+    if (document.getElementById('modal-over').style.display === "flex" || 
+        !document.getElementById('scr-game').classList.contains('active')) {
+        return; 
+    }
 
-          // =========================================================================
-          // DUAL-GATE SECURITY COUPLING: Drops data if completely out of round limits
-          // =========================================================================
-          if (currentModeName === "" || !isRoundActive) {
-              console.log("Ambient sensor impact blocked. Round hasn't started yet.");
-              return; 
-          }
-          // =========================================================================
-          
-          if (currentModeName === "Reaction") {
-              document.getElementById('dispImpact').innerText = "HIT!";
-              document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
-          } else {
-              document.getElementById('dispImpact').innerText = pwr;
-          }
+    // 3. PROCESS RAW SENSOR HIT JSON DATA
+    try {
+        const data = JSON.parse(evt.data);
+        let device = data.device;    
+        let pwr = parseInt(data.power);
+        let angle = parseFloat(data.angle);
+        let rxn = data.reaction ? parseInt(data.reaction) : 0; // Grab reaction math if it exists
 
-          if (currentModeName === "Sniper") {
-              let msg = document.getElementById('statusMsg');
-              if (pwr < pssThreshold) {
-                  msg.innerText = "TOO WEAK";
-                  msg.style.color = "#ff4444";
-              } else if (pwr >= pssThreshold && pwr < (pssThreshold + 100)) {
-                  msg.innerText = "PERFECT!";
-                  msg.style.color = "#00ffcc";
-              } else {
-                  msg.innerText = "OVERKILL";
-                  msg.style.color = "#ffcc00";
-              }
-          }
-          
-          if (device === "ANKLE" || angle > 0) {
-              let alignment = (angle >= -10.0 && angle <= 10.0) ? "SQUARE" : (angle < -10.0 ? "OVER" : "UNDER");
-              sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
-          } else {
-              sessionKicks.push({p: pwr, r: rxn});
-          }
+        if (currentModeName === "" || !isRoundActive) {
+            console.log("Ambient sensor impact blocked. Round inactive.");
+            return; 
+        }
+        
+        if (currentModeName === "Reaction") {
+            document.getElementById('dispImpact').innerText = rxn > 0 ? rxn + "ms" : "HIT!";
+            document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
+        } else {
+            document.getElementById('dispImpact').innerText = pwr;
+        }
 
-          let totalKicksRegistered = sessionKicks.length;
-          document.getElementById('dispKicks').innerText = totalKicksRegistered;
-          playHitSound();
+        if (currentModeName === "Sniper") {
+            let msg = document.getElementById('statusMsg');
+            if (pwr < pssThreshold) {
+                msg.innerText = "TOO WEAK";
+                msg.style.color = "#ff4444";
+            } else if (pwr >= pssThreshold && pwr < (pssThreshold + 100)) {
+                msg.innerText = "PERFECT!";
+                msg.style.color = "#00ffcc";
+            } else {
+                msg.innerText = "OVERKILL";
+                msg.style.color = "#ffcc00";
+            }
+        }
+        
+        if (device === "ANKLE" || angle > 0) {
+            let alignment = (angle >= -10.0 && angle <= 10.0) ? "SQUARE" : (angle < -10.0 ? "OVER" : "UNDER");
+            sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
+        } else {
+            sessionKicks.push({p: pwr, r: rxn});
+        }
 
-          let selectedTargetKicks = 0;
-          if (currentModeName === "Power") {
-              selectedTargetKicks = parseInt(document.getElementById('m1-kicks').value) || 0;
-          } else if (currentModeName === "Reaction") {
-              selectedTargetKicks = parseInt(document.getElementById('m2-kicks').value) || 0;
-          } else if (currentModeName === "Sniper") {
-              selectedTargetKicks = parseInt(document.getElementById('m3-kicks').value) || 0;
-          }
+        let totalKicksRegistered = sessionKicks.length;
+        document.getElementById('dispKicks').innerText = totalKicksRegistered;
+        playHitSound();
 
-          if (selectedTargetKicks > 0 && totalKicksRegistered >= selectedTargetKicks) {
-              playSuccessTune();
-              endGame(false); 
-          }
+        let selectedTargetKicks = 0;
+        if (currentModeName === "Power") selectedTargetKicks = parseInt(document.getElementById('m1-kicks').value) || 0;
+        else if (currentModeName === "Reaction") selectedTargetKicks = parseInt(document.getElementById('m2-kicks').value) || 0;
+        else if (currentModeName === "Sniper") selectedTargetKicks = parseInt(document.getElementById('m3-kicks').value) || 0;
+
+        if (selectedTargetKicks > 0 && totalKicksRegistered >= selectedTargetKicks) {
+            playSuccessTune();
+            endGame(false); 
+        }
 
       } catch (e) {
           console.log("Non-JSON string caught:", evt.data);
