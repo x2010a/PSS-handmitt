@@ -352,7 +352,9 @@
         else if (currentModeName === "Reaction") selectedTargetKicks = parseInt(document.getElementById('m2-kicks').value) || 0;
         else if (currentModeName === "Sniper") selectedTargetKicks = parseInt(document.getElementById('m3-kicks').value) || 0;
 
-        if (selectedTargetKicks > 0 && totalKicksRegistered >= selectedTargetKicks) {
+        // THE FIX: Only let the browser auto-end Mode 1 and Mode 3. 
+        // Mode 2 will wait for the S3 Hub's official "OVER" command!
+        if (currentModeName !== "Reaction" && selectedTargetKicks > 0 && totalKicksRegistered >= selectedTargetKicks) {
             playSuccessTune();
             endGame(false); 
         }
