@@ -1,4 +1,3 @@
-
 <!DOCTYPE html><html><head><title>Smart Paddle V1</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
@@ -171,8 +170,9 @@
   let ankleConnected = false;
   var pssThreshold = 0;
   
-  // THE NEW MASTER SAFE CONTROL VALVE FLAG
+  // THE MASTER LATCHES
   var isRoundActive = false; 
+  var isEndingProcessed = false;
 
   var audioCtx = null;
   var masterGainNode = null;
@@ -259,105 +259,96 @@
     };
 
     websocket.onmessage = (evt) => {
-    // 1. HANDLE SYSTEM ALERTS (These must ALWAYS pass through, even if modal is open)
-    if (evt.data === "OVER") { 
-        playSuccessTune(); 
-        
-        clearInterval(countdownTimer);
-        if (tankInterval) clearInterval(tankInterval);
-        clearTimeout(reactionTimeout); // Safety baseline inclusion
-        
-        currentModeName = ""; 
-        isRoundActive = false; 
+      if (evt.data === "OVER") { 
+          if (!isEndingProcessed) {
+              isEndingProcessed = true;
+              playSuccessTune(); 
+              endGame(false); 
+          }
+          return; 
+      }
+      if (evt.data === "TRIGGER_HIT") {
+          if (isRoundActive) playHitSound();
+          return;
+      }
+      if (evt.data === "SIGNAL_WAIT") {
+          document.body.style.backgroundColor = "#4a0000";
+          document.getElementById('statusMsg').innerText = "WAIT...";
+          return;
+      }
+      if (evt.data === "SIGNAL_GO") {
+          document.body.style.backgroundColor = "#004a00";
+          document.getElementById('statusMsg').innerText = "KICK!";
+          playGoSound();
+          return;
+      }
+      if (evt.data.startsWith("TANK_REFILL") || evt.data.startsWith("TANK_START")) {
+          let duration = parseFloat(evt.data.split('|')[1]);
+          startTankCountdown(duration);
+          playGoSound(); 
+          return;
+      }
 
-        endGame(false); 
-        return; 
-    }
-    if (evt.data === "TRIGGER_HIT") {
-        if (isRoundActive) playHitSound();
-        return;
-    }
-    if (evt.data === "SIGNAL_WAIT") {
-        document.body.style.backgroundColor = "#4a0000";
-        document.getElementById('statusMsg').innerText = "WAIT...";
-        return;
-    }
-    if (evt.data === "SIGNAL_GO") {
-        document.body.style.backgroundColor = "#004a00";
-        document.getElementById('statusMsg').innerText = "KICK!";
-        playGoSound();
-        return;
-    }
-    if (evt.data.startsWith("TANK_REFILL") || evt.data.startsWith("TANK_START")) {
-        let duration = parseFloat(evt.data.split('|')[1]);
-        startTankCountdown(duration);
-        playGoSound(); 
-        return;
-    }
+      // Drop incoming noise if window is explicitly locked or inactive
+      if (document.getElementById('modal-over').style.display === "flex" || 
+          !document.getElementById('scr-game').classList.contains('active')) {
+          return; 
+      }
 
-    // 2. STICKY POPUP SHIELD (Placed exactly here!)
-    // If the modal is open or the game screen is inactive, completely ignore raw sensor kick calculations
-    if (document.getElementById('modal-over').style.display === "flex" || 
-        !document.getElementById('scr-game').classList.contains('active')) {
-        return; 
-    }
+      try {
+          const data = JSON.parse(evt.data);
+          let device = data.device;    
+          let pwr = parseInt(data.power);
+          let angle = parseFloat(data.angle);
+          let rxn = data.reaction ? parseInt(data.reaction) : 0; 
 
-    // 3. PROCESS RAW SENSOR HIT JSON DATA
-    try {
-        const data = JSON.parse(evt.data);
-        let device = data.device;    
-        let pwr = parseInt(data.power);
-        let angle = parseFloat(data.angle);
-        let rxn = data.reaction ? parseInt(data.reaction) : 0; // Grab reaction math if it exists
+          if (currentModeName === "" || !isRoundActive) return; 
+          
+          if (currentModeName === "Reaction") {
+              document.getElementById('dispImpact').innerText = rxn > 0 ? rxn + "ms" : "HIT!";
+              document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
+          } else {
+              document.getElementById('dispImpact').innerText = pwr;
+          }
 
-        if (currentModeName === "" || !isRoundActive) {
-            console.log("Ambient sensor impact blocked. Round inactive.");
-            return; 
-        }
-        
-        if (currentModeName === "Reaction") {
-            document.getElementById('dispImpact').innerText = rxn > 0 ? rxn + "ms" : "HIT!";
-            document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
-        } else {
-            document.getElementById('dispImpact').innerText = pwr;
-        }
+          if (currentModeName === "Sniper") {
+              let msg = document.getElementById('statusMsg');
+              if (pwr < pssThreshold) {
+                  msg.innerText = "TOO WEAK";
+                  msg.style.color = "#ff4444";
+              } else if (pwr >= pssThreshold && pwr < (pssThreshold + 100)) {
+                  msg.innerText = "PERFECT!";
+                  msg.style.color = "#00ffcc";
+              } else {
+                  msg.innerText = "OVERKILL";
+                  msg.style.color = "#ffcc00";
+              }
+          }
+          
+          if (device === "ANKLE" || angle > 0) {
+              let alignment = (angle >= -10.0 && angle <= 10.0) ? "SQUARE" : (angle < -10.0 ? "OVER" : "UNDER");
+              sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
+          } else {
+              sessionKicks.push({p: pwr, r: rxn});
+          }
 
-        if (currentModeName === "Sniper") {
-            let msg = document.getElementById('statusMsg');
-            if (pwr < pssThreshold) {
-                msg.innerText = "TOO WEAK";
-                msg.style.color = "#ff4444";
-            } else if (pwr >= pssThreshold && pwr < (pssThreshold + 100)) {
-                msg.innerText = "PERFECT!";
-                msg.style.color = "#00ffcc";
-            } else {
-                msg.innerText = "OVERKILL";
-                msg.style.color = "#ffcc00";
-            }
-        }
-        
-        if (device === "ANKLE" || angle > 0) {
-            let alignment = (angle >= -10.0 && angle <= 10.0) ? "SQUARE" : (angle < -10.0 ? "OVER" : "UNDER");
-            sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
-        } else {
-            sessionKicks.push({p: pwr, r: rxn});
-        }
+          let totalKicksRegistered = sessionKicks.length;
+          document.getElementById('dispKicks').innerText = totalKicksRegistered;
+          playHitSound();
 
-        let totalKicksRegistered = sessionKicks.length;
-        document.getElementById('dispKicks').innerText = totalKicksRegistered;
-        playHitSound();
+          let selectedTargetKicks = 0;
+          if (currentModeName === "Power") selectedTargetKicks = parseInt(document.getElementById('m1-kicks').value) || 0;
+          else if (currentModeName === "Reaction") selectedTargetKicks = parseInt(document.getElementById('m2-kicks').value) || 0;
+          else if (currentModeName === "Sniper") selectedTargetKicks = parseInt(document.getElementById('m3-kicks').value) || 0;
 
-        let selectedTargetKicks = 0;
-        if (currentModeName === "Power") selectedTargetKicks = parseInt(document.getElementById('m1-kicks').value) || 0;
-        else if (currentModeName === "Reaction") selectedTargetKicks = parseInt(document.getElementById('m2-kicks').value) || 0;
-        else if (currentModeName === "Sniper") selectedTargetKicks = parseInt(document.getElementById('m3-kicks').value) || 0;
-
-        // THE FIX: Only let the browser auto-end Mode 1 and Mode 3. 
-        // Mode 2 will wait for the S3 Hub's official "OVER" command!
-        if (currentModeName !== "Reaction" && selectedTargetKicks > 0 && totalKicksRegistered >= selectedTargetKicks) {
-            playSuccessTune();
-            endGame(false); 
-        }
+          // Only auto-trigger browser chime if it's NOT a reaction session
+          if (currentModeName !== "Reaction" && selectedTargetKicks > 0 && totalKicksRegistered >= selectedTargetKicks) {
+              if (!isEndingProcessed) {
+                  isEndingProcessed = true;
+                  playSuccessTune();
+                  endGame(false); 
+              }
+          }
 
       } catch (e) {
           console.log("Non-JSON string caught:", evt.data);
@@ -367,13 +358,14 @@
 
   function startMode1() {
     isDNF = false;
+    isEndingProcessed = false;
     let name = document.querySelector('#scr-settings-m1 .p-select').value;
     let time = document.getElementById('m1-time').value || 30;
     let kicks = document.getElementById('m1-kicks').value || 0;
     
     currentModeName = "Power"; 
     sessionKicks = [];
-    isRoundActive = true; // Valve open!
+    isRoundActive = true; 
     
     websocket.send(`M1|${name}|${time}|${kicks}`);
     document.getElementById('dispName').innerText = name;
@@ -383,6 +375,7 @@
 
   function startMode2() {
     isDNF = false;
+    isEndingProcessed = false;
     let name = document.querySelector('#scr-settings-m2 .p-select').value;
     let count = document.getElementById('m2-kicks').value || 10;
     let min = document.getElementById('m2-min').value || 1;
@@ -391,7 +384,7 @@
     
     currentModeName = "Reaction";
     sessionKicks = [];
-    isRoundActive = true; // Valve open!
+    isRoundActive = true; 
     
     websocket.send(`M2|${name}|${count}|${min}|${max}|${windowVal}`);
     document.getElementById('dispName').innerText = name;
@@ -401,6 +394,7 @@
 
   function startSniperMode() {
     isDNF = false;
+    isEndingProcessed = false;
     const userSelect = document.getElementById('m3-user-select');
     const weightInput = document.getElementById('m3-target-weight');
     const kicksInput = document.getElementById('m3-kicks');
@@ -422,7 +416,7 @@
 
     currentModeName = "Sniper"; 
     sessionKicks = [];
-    isRoundActive = true; // Valve open!
+    isRoundActive = true; 
     
     document.getElementById('dispName').innerText = name + " [" + weight + "kg]";
     document.getElementById('timer').innerText = pssThreshold;
@@ -463,6 +457,7 @@
 
   function startTankMode() {
     isDNF = false;
+    isEndingProcessed = false;
     const weight = parseFloat(document.getElementById('m3-target-weight').value);
     const user = document.getElementById('m3-user-select').value;
 
@@ -472,7 +467,7 @@
     
     currentModeName = "The Tank"; 
     sessionKicks = []; 
-    isRoundActive = true; // Valve open!
+    isRoundActive = true; 
     
     document.getElementById('dispName').innerText = "TANK: " + user;
     startTankCountdown(3.0); 
@@ -548,7 +543,11 @@
           clearInterval(countdownTimer);
           if (document.getElementById('scr-game').classList.contains('active') && 
               document.getElementById('modal-over').style.display !== "flex") {
-              endGame(false); 
+              if (!isEndingProcessed) {
+                  isEndingProcessed = true;
+                  playSuccessTune();
+                  endGame(false); 
+              }
           }
       }
     }, 1000);
@@ -562,8 +561,6 @@
     document.body.style.backgroundColor = "#121212";
     saveToHistory();
     
-    // Shut down the valves completely
-    currentModeName = ""; 
     isRoundActive = false; 
     
     const modal = document.getElementById('modal-over');
@@ -594,7 +591,8 @@
     clearInterval(tankInterval);
     
     currentModeName = ""; 
-    isRoundActive = false; // Force safety block
+    isRoundActive = false; 
+    isEndingProcessed = false; // Release lock layout for the next dashboard session
 
     document.getElementById('modal-over').style.display = "none"; 
     showScreen(targetScreen);
@@ -641,7 +639,7 @@
 
   function saveToHistory() {
     const dispNameText = document.getElementById('dispName').innerText;
-    if(dispNameText === "Guest" || dispNameText === "") return;
+    if(dispNameText === "Guest" || dispNameText === "" || dispNameText.startsWith("TANK:")) return;
     
     const db = getDB();
     const workout = { 
@@ -726,12 +724,13 @@
 
  function manualEndSession() {
     if (confirm("End session now and save results?")) {
-        if (websocket && websocket.readyState === WebSocket.OPEN) {
-            websocket.send("STOP_GAME");
+        if (!isEndingProcessed) {
+            isEndingProcessed = true;
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send("STOP_GAME");
+            }
+            endGame(true); 
         }
-        clearInterval(countdownTimer);
-        clearInterval(tankInterval);
-        endGame(true); 
     }
   }
 
