@@ -1,4 +1,3 @@
-
 <!DOCTYPE html><html><head><title>Smart Paddle V1</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
@@ -16,23 +15,36 @@
   input, select { text-align: center; padding: 15px; margin: 10px; width: 85%; max-width: 300px; border-radius: 8px; border: none; background: #2a2a2a; color: white; font-size: 1rem; }
   #modal-over { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; justify-content:center; align-items:center; flex-direction:column; }
   .log-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; font-family: monospace; font-size: 0.8rem; }
+  /* PAIRING STYLES */
+  .pair-request-card { background: #1a1a00; border: 1px solid #ffcc00; border-radius: 10px; padding: 12px; margin: 8px auto; max-width: 340px; display: flex; justify-content: space-between; align-items: center; }
+  .pair-confirmed-card { background: #001a00; border: 1px solid #28a745; border-radius: 10px; padding: 12px; margin: 8px auto; max-width: 340px; display: flex; justify-content: space-between; align-items: center; }
+  .pair-btn-approve { background: #28a745; color: white; border: none; border-radius: 20px; padding: 8px 16px; font-size: 0.85rem; font-weight: bold; cursor: pointer; width: auto; margin: 0 4px; }
+  .pair-btn-remove { background: #c0392b; color: white; border: none; border-radius: 20px; padding: 8px 16px; font-size: 0.85rem; font-weight: bold; cursor: pointer; width: auto; margin: 0 4px; }
 </style></head>
 <body>
-  
-<!--Version update-->  
+
+<!--Version update-->
 <text>Version 0.1</text>
-<!--Version update-->  
-  
+<!--Version update-->
+
   <div id="scr-menu" class="screen active">
     <h1 style="margin-top: 50px; color: #ffcc00;">Smart Paddle</h1>
     <p id="connStatus" style="color: #ff4444;">Searching for Hardware...</p>
     <button id="audio-btn" class="audio-locked" onclick="unlockAudio()">1. ENABLE SOUND</button>
-    
+
     <div id="volume-container" class="stat-card" style="display: none; border-color: #f1c40f;">
       <p style="margin:0; font-size: 0.9rem; color: #aaa;">System Volume Booster</p>
-      <input type="range" id="vol-slider" min="0.2" max="10.0" step="0.2" value="1.0" 
+      <input type="range" id="vol-slider" min="0.2" max="10.0" step="0.2" value="1.0"
              oninput="updateVolumeLevel(this.value)" style="width: 85%; margin: 10px 0;">
       <p id="vol-val" style="margin:5px 0 0 0; font-weight: bold; color: #f1c40f; font-size: 1.5rem;">1.0x</p>
+    </div>
+
+    <!-- PAIRING PANEL -->
+    <div class="stat-card" id="pairing-panel" style="border-color: #555;">
+      <p style="margin: 0 0 8px 0; font-size: 0.85rem; color: #aaa; font-weight: bold;">SENSOR PAIRING</p>
+      <div id="pair-requests"></div>
+      <div id="pair-confirmed"></div>
+      <p id="pair-empty" style="color: #555; font-size: 0.8rem; margin: 4px 0;">No sensors connected.</p>
     </div>
 
     <button onclick="showScreen('scr-settings-m1')">2. START MODE 1 (TIME)</button>
@@ -42,8 +54,8 @@
 
     <div class="stat-card" style="border-color: #555; margin-top: 25px;">
       <p style="margin:0; font-size: 0.9rem; color: #aaa;">Hardware Sensitivity</p>
-      <input type="range" id="sens-slider" min="100" max="1200" step="50" value="350" 
-             oninput="updateSensDisp(this.value)" onchange="sendSensitivity(this.value)" 
+      <input type="range" id="sens-slider" min="100" max="1200" step="50" value="350"
+             oninput="updateSensDisp(this.value)" onchange="sendSensitivity(this.value)"
              style="width: 85%; margin: 10px 0;">
       <p id="sens-val" style="margin:5px 0 0 0; font-weight: bold; color: #00ffcc; font-size: 1.5rem;">350</p>
       <small style="color: #666; display: block; margin-top: 5px;">Lower = More Sensitive | Higher = Stiffer (Compensates for Soft Foam)</small>
@@ -55,11 +67,11 @@
     <select class="p-select"><option value="Guest">-- Select Fighter --</option></select>
     <input type="number" id="m1-time" placeholder="Seconds (e.g. 30)">
     <input type="number" id="m1-kicks" placeholder="Target Kicks (optional)">
-    
+
     <div class="stat-card" style="border-color: #ffcc00; text-align: left;">
       <p style="margin: 0 0 10px 0; font-size: 0.85rem; color: #ffcc00; font-weight: bold;">PERIPHERAL CONFIGURATION</p>
       <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.9rem;">
-        <input type="checkbox" id="m1-use-ankle" onchange="toggleAnkleDiscovery(this.checked)" style="width: auto; margin-right: 12px;"> 
+        <input type="checkbox" id="m1-use-ankle" onchange="toggleAnkleDiscovery(this.checked)" style="width: auto; margin-right: 12px;">
         <span>Link Ankle Gyro Sensor (ESP32-C3)</span>
       </label>
       <p id="ankle-status" style="margin: 5px 0 0 26px; font-size: 0.8rem; color: #666;">Status: Offline</p>
@@ -85,11 +97,11 @@
   <div id="scr-settings-m3" class="screen">
     <h2 style="color: #00ffcc;">Mode 3: PSS Efficiency</h2>
     <p style="color: #666; margin-top: -10px;">Configure your Calibration</p>
-    
+
     <select class="p-select" id="m3-user-select">
       <option value="Guest">-- Select Fighter --</option>
     </select>
-    
+
     <div class="stat-card" style="border-color: #444;">
       <p style="margin: 0 0 10px 0; font-size: 0.9rem; color: #aaa;">Target Weight (kg)</p>
       <input type="number" id="m3-target-weight" placeholder="e.g. 87" style="width: 80%;">
@@ -102,7 +114,7 @@
     <p style="font-size: 0.8rem; color: #888;">Select Sub-Mode:</p>
     <button onclick="startSniperMode()">1. THE SNIPER (Precision)</button>
     <button onclick="startTankMode()" style="background: #e67e22;">2. THE TANK (Survival)</button>
-    
+
     <button class="secondary" onclick="showScreen('scr-menu')" style="margin-top: 20px;">BACK</button>
   </div>
 
@@ -168,26 +180,93 @@
   var gateway = `ws://192.168.4.1/ws`;
   var websocket;
   var countdownTimer;
-  var sessionKicks = []; 
-  var currentModeName = ""; 
+  var sessionKicks = [];
+  var currentModeName = "";
   let tankInterval;
-  let isDNF = false; 
+  let isDNF = false;
   let ankleConnected = false;
   var pssThreshold = 0;
-  
-  // THE MASTER LATCHES
-  var isRoundActive = false; 
+
+  var isRoundActive = false;
   var isEndingProcessed = false;
 
   var audioCtx = null;
   var masterGainNode = null;
 
+  // ==========================================
+  // PAIRING STATE
+  // ==========================================
+  var pendingPairRequests = {}; // mac -> deviceID
+  var pairedSensors = {};       // mac -> deviceID
+
+  function renderPairingPanel() {
+    const reqDiv = document.getElementById('pair-requests');
+    const confDiv = document.getElementById('pair-confirmed');
+    const emptyMsg = document.getElementById('pair-empty');
+
+    reqDiv.innerHTML = "";
+    confDiv.innerHTML = "";
+
+    let hasContent = false;
+
+    // Pending requests
+    Object.entries(pendingPairRequests).forEach(([mac, deviceID]) => {
+      hasContent = true;
+      reqDiv.innerHTML += `
+        <div class="pair-request-card">
+          <div style="text-align:left;">
+            <span style="color:#ffcc00; font-weight:bold; font-size:0.9rem;">${deviceID}</span><br>
+            <span style="color:#555; font-size:0.7rem;">${mac}</span>
+          </div>
+          <div>
+            <button class="pair-btn-approve" onclick="approvePairing('${mac}','${deviceID}')">APPROVE</button>
+          </div>
+        </div>`;
+    });
+
+    // Confirmed sensors
+    Object.entries(pairedSensors).forEach(([mac, deviceID]) => {
+      hasContent = true;
+      confDiv.innerHTML += `
+        <div class="pair-confirmed-card">
+          <div style="text-align:left;">
+            <span style="color:#28a745; font-weight:bold; font-size:0.9rem;">✔ ${deviceID}</span><br>
+            <span style="color:#555; font-size:0.7rem;">${mac}</span>
+          </div>
+          <div>
+            <button class="pair-btn-remove" onclick="removePairing('${mac}')">REMOVE</button>
+          </div>
+        </div>`;
+    });
+
+    emptyMsg.style.display = hasContent ? "none" : "block";
+  }
+
+  function approvePairing(mac, deviceID) {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(`PAIR_APPROVE|${mac}|${deviceID}`);
+    }
+    delete pendingPairRequests[mac];
+    renderPairingPanel();
+  }
+
+  function removePairing(mac) {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(`PAIR_REMOVE|${mac}`);
+    }
+    delete pairedSensors[mac];
+    renderPairingPanel();
+  }
+
+  // ==========================================
+  // AUDIO
+  // ==========================================
   function unlockAudio() {
     if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        masterGainNode = audioCtx.createGain();
-        masterGainNode.gain.setValueAtTime(1.0, audioCtx.currentTime); 
-        masterGainNode.connect(audioCtx.destination);
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGainNode = audioCtx.createGain();
+      masterGainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
+      masterGainNode.connect(audioCtx.destination);
     }
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
@@ -195,53 +274,48 @@
     osc.connect(gain);
     gain.connect(audioCtx.destination);
     osc.start(0); osc.stop(0.1);
-    
+
     document.getElementById('audio-btn').innerText = "SOUND ACTIVE";
     document.getElementById('audio-btn').className = "secondary";
     document.getElementById('volume-container').style.display = "block";
   }
 
   function updateVolumeLevel(val) {
-      document.getElementById('vol-val').innerText = val + "x";
-      if (masterGainNode && audioCtx) {
-          masterGainNode.gain.setValueAtTime(parseFloat(val), audioCtx.currentTime);
-      }
+    document.getElementById('vol-val').innerText = val + "x";
+    if (masterGainNode && audioCtx) {
+      masterGainNode.gain.setValueAtTime(parseFloat(val), audioCtx.currentTime);
+    }
   }
 
   function playHitSound() {
     if (!audioCtx || !masterGainNode) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(523, audioCtx.currentTime);
     gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-    osc.connect(gain); 
-    gain.connect(masterGainNode); 
+    osc.connect(gain); gain.connect(masterGainNode);
     osc.start(); osc.stop(audioCtx.currentTime + 0.15);
   }
 
   function playGoSound() {
     if (!audioCtx || !masterGainNode) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
     gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-    osc.connect(gain); 
-    gain.connect(masterGainNode);
+    osc.connect(gain); gain.connect(masterGainNode);
     osc.start(); osc.stop(audioCtx.currentTime + 0.2);
   }
 
   function playSuccessTune() {
     if (!audioCtx || !masterGainNode) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    
     const melody = [{ f: 523, d: 0.15 }, { f: 523, d: 0.15 }, { f: 523, d: 0.15 }, { f: 523, d: 0.4 }, { f: 415, d: 0.4 }, { f: 466, d: 0.4 }, { f: 523, d: 0.2 }, { f: 466, d: 0.2 }, { f: 523, d: 0.8 }];
     let st = audioCtx.currentTime;
     melody.forEach((n) => {
@@ -250,147 +324,167 @@
       f.type = 'lowpass'; f.frequency.setValueAtTime(2000, st); g.gain.setValueAtTime(0, st);
       g.gain.linearRampToValueAtTime(0.3, st + 0.02); g.gain.exponentialRampToValueAtTime(0.01, st + n.d);
       o.connect(f); sO.connect(f); f.connect(g); g.connect(masterGainNode);
-      o.start(st); sO.start(st); o.stop(st + n.d); sO.stop(st + n.d); st += n.d; 
+      o.start(st); sO.start(st); o.stop(st + n.d); sO.stop(st + n.d); st += n.d;
     });
   }
 
+  // ==========================================
+  // WEBSOCKET
+  // ==========================================
   function initWS() {
     websocket = new WebSocket(gateway);
-    websocket.onopen = () => { 
-        document.getElementById('connStatus').innerText = "Connected"; 
-        document.getElementById('connStatus').style.color = "#28a745"; 
-        let savedSens = localStorage.getItem('globalSensitivity') || 350;
-        websocket.send("SET_SENS|" + savedSens);
+    websocket.onopen = () => {
+      document.getElementById('connStatus').innerText = "Connected";
+      document.getElementById('connStatus').style.color = "#28a745";
+      let savedSens = localStorage.getItem('globalSensitivity') || 350;
+      websocket.send("SET_SENS|" + savedSens);
     };
 
     websocket.onmessage = (evt) => {
-      if (evt.data === "OVER") { 
-          if (!isEndingProcessed) {
-              isEndingProcessed = true;
-              playSuccessTune(); 
-              endGame(false); 
-          }
-          return; 
-      }
-      if (evt.data === "TRIGGER_HIT") {
-          if (isRoundActive) playHitSound();
+
+      // --- PAIRING MESSAGES ---
+      try {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === "PAIR_REQUEST") {
+          pendingPairRequests[msg.mac] = msg.device;
+          renderPairingPanel();
           return;
-      }
-      if (evt.data === "SIGNAL_WAIT") {
-          document.body.style.backgroundColor = "#4a0000";
-          document.getElementById('statusMsg').innerText = "WAIT...";
+        }
+        if (msg.type === "PAIR_CONFIRMED") {
+          delete pendingPairRequests[msg.mac];
+          pairedSensors[msg.mac] = msg.device;
+          renderPairingPanel();
           return;
-      }
-      if (evt.data === "SIGNAL_GO") {
-          document.body.style.backgroundColor = "#004a00";
-          document.getElementById('statusMsg').innerText = "KICK!";
-          playGoSound();
+        }
+        if (msg.type === "PAIR_REMOVED") {
+          delete pairedSensors[msg.mac];
+          renderPairingPanel();
           return;
-      }
-      if (evt.data.startsWith("TANK_REFILL") || evt.data.startsWith("TANK_START")) {
-          let duration = parseFloat(evt.data.split('|')[1]);
-          startTankCountdown(duration);
-          playGoSound(); 
+        }
+        if (msg.type === "PAIRED_LIST") {
+          pairedSensors = {};
+          msg.devices.forEach(d => { pairedSensors[d.mac] = d.device; });
+          renderPairingPanel();
           return;
+        }
+      } catch(e) {
+        // Not JSON pairing message — fall through to game logic below
       }
 
-      // Drop incoming noise if window is explicitly locked or inactive
-      if (document.getElementById('modal-over').style.display === "flex" || 
+      // --- GAME MESSAGES ---
+      if (evt.data === "OVER") {
+        if (!isEndingProcessed) {
+          isEndingProcessed = true;
+          playSuccessTune();
+          endGame(false);
+        }
+        return;
+      }
+      if (evt.data === "TRIGGER_HIT") {
+        if (isRoundActive) playHitSound();
+        return;
+      }
+      if (evt.data === "SIGNAL_WAIT") {
+        document.body.style.backgroundColor = "#4a0000";
+        document.getElementById('statusMsg').innerText = "WAIT...";
+        return;
+      }
+      if (evt.data === "SIGNAL_GO") {
+        document.body.style.backgroundColor = "#004a00";
+        document.getElementById('statusMsg').innerText = "KICK!";
+        playGoSound();
+        return;
+      }
+      if (evt.data.startsWith("TANK_REFILL") || evt.data.startsWith("TANK_START")) {
+        let duration = parseFloat(evt.data.split('|')[1]);
+        startTankCountdown(duration);
+        playGoSound();
+        return;
+      }
+
+      if (document.getElementById('modal-over').style.display === "flex" ||
           !document.getElementById('scr-game').classList.contains('active')) {
-          return; 
+        return;
       }
 
       try {
-          const data = JSON.parse(evt.data);
-          let device = data.device;    
-          let pwr = parseInt(data.power);
-          let angle = parseFloat(data.angle);
-          let rxn = data.reaction ? parseInt(data.reaction) : 0; 
+        const data = JSON.parse(evt.data);
+        let device = data.device;
+        let pwr = parseInt(data.power);
+        let angle = parseFloat(data.angle);
+        let rxn = data.reaction ? parseInt(data.reaction) : 0;
 
-          if (currentModeName === "" || !isRoundActive) return; 
-          
-          if (currentModeName === "Reaction") {
-              document.getElementById('dispImpact').innerText = rxn > 0 ? rxn + "ms" : "HIT!";
-              document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
+        if (currentModeName === "" || !isRoundActive) return;
+
+        if (currentModeName === "Reaction") {
+          document.getElementById('dispImpact').innerText = rxn > 0 ? rxn + "ms" : "HIT!";
+          document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
+        } else {
+          document.getElementById('dispImpact').innerText = pwr;
+        }
+
+        if (currentModeName === "Sniper") {
+          let msg = document.getElementById('statusMsg');
+          if (pwr < pssThreshold) {
+            msg.innerText = "TOO WEAK"; msg.style.color = "#ff4444";
+          } else if (pwr >= pssThreshold && pwr < (pssThreshold + 100)) {
+            msg.innerText = "PERFECT!"; msg.style.color = "#00ffcc";
           } else {
-              document.getElementById('dispImpact').innerText = pwr;
+            msg.innerText = "OVERKILL"; msg.style.color = "#ffcc00";
           }
+        }
 
-          if (currentModeName === "Sniper") {
-              let msg = document.getElementById('statusMsg');
-              if (pwr < pssThreshold) {
-                  msg.innerText = "TOO WEAK";
-                  msg.style.color = "#ff4444";
-              } else if (pwr >= pssThreshold && pwr < (pssThreshold + 100)) {
-                  msg.innerText = "PERFECT!";
-                  msg.style.color = "#00ffcc";
-              } else {
-                  msg.innerText = "OVERKILL";
-                  msg.style.color = "#ffcc00";
-              }
+        if (device === "ANKLE" || angle > 0) {
+          let alignment = (angle >= -10.0 && angle <= 10.0) ? "SQUARE" : (angle < -10.0 ? "OVER" : "UNDER");
+          sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
+        } else {
+          sessionKicks.push({p: pwr, r: rxn});
+        }
+
+        let totalKicksRegistered = sessionKicks.length;
+        document.getElementById('dispKicks').innerText = totalKicksRegistered;
+        playHitSound();
+
+        let selectedTargetKicks = 0;
+        if (currentModeName === "Power") selectedTargetKicks = parseInt(document.getElementById('m1-kicks').value) || 0;
+        else if (currentModeName === "Reaction") selectedTargetKicks = parseInt(document.getElementById('m2-kicks').value) || 0;
+        else if (currentModeName === "Sniper") selectedTargetKicks = parseInt(document.getElementById('m3-kicks').value) || 0;
+
+        if (currentModeName !== "Reaction" && selectedTargetKicks > 0 && totalKicksRegistered >= selectedTargetKicks) {
+          if (!isEndingProcessed) {
+            isEndingProcessed = true;
+            playSuccessTune();
+            endGame(false);
           }
-          
-          if (device === "ANKLE" || angle > 0) {
-              let alignment = (angle >= -10.0 && angle <= 10.0) ? "SQUARE" : (angle < -10.0 ? "OVER" : "UNDER");
-              sessionKicks.push({p: pwr, r: rxn, ang: angle, align: alignment});
-          } else {
-              sessionKicks.push({p: pwr, r: rxn});
-          }
-
-          let totalKicksRegistered = sessionKicks.length;
-          document.getElementById('dispKicks').innerText = totalKicksRegistered;
-          playHitSound();
-
-          let selectedTargetKicks = 0;
-          if (currentModeName === "Power") selectedTargetKicks = parseInt(document.getElementById('m1-kicks').value) || 0;
-          else if (currentModeName === "Reaction") selectedTargetKicks = parseInt(document.getElementById('m2-kicks').value) || 0;
-          else if (currentModeName === "Sniper") selectedTargetKicks = parseInt(document.getElementById('m3-kicks').value) || 0;
-
-          // Only auto-trigger browser chime if it's NOT a reaction session
-          if (currentModeName !== "Reaction" && selectedTargetKicks > 0 && totalKicksRegistered >= selectedTargetKicks) {
-              if (!isEndingProcessed) {
-                  isEndingProcessed = true;
-                  playSuccessTune();
-                  endGame(false); 
-              }
-          }
-
+        }
       } catch (e) {
-          console.log("Non-JSON string caught:", evt.data);
+        console.log("Non-JSON string caught:", evt.data);
       }
     };
   }
 
+  // ==========================================
+  // GAME MODES (ALL ORIGINAL — UNTOUCHED)
+  // ==========================================
   function startMode1() {
-    isDNF = false;
-    isEndingProcessed = false;
+    isDNF = false; isEndingProcessed = false;
     let name = document.querySelector('#scr-settings-m1 .p-select').value;
     let time = document.getElementById('m1-time').value || 30;
     let kicks = document.getElementById('m1-kicks').value || 0;
-    
-    currentModeName = "Power"; 
-    sessionKicks = [];
-    isRoundActive = true; 
-    
+    currentModeName = "Power"; sessionKicks = []; isRoundActive = true;
     websocket.send(`M1|${name}|${time}|${kicks}`);
     document.getElementById('dispName').innerText = name;
-    showScreen('scr-game');
-    startTimer(time);
+    showScreen('scr-game'); startTimer(time);
   }
 
   function startMode2() {
-    isDNF = false;
-    isEndingProcessed = false;
+    isDNF = false; isEndingProcessed = false;
     let name = document.querySelector('#scr-settings-m2 .p-select').value;
     let count = document.getElementById('m2-kicks').value || 10;
     let min = document.getElementById('m2-min').value || 1;
     let max = document.getElementById('m2-max').value || 3;
-    let windowVal = document.getElementById('m2-window').value || 2.0; 
-    
-    currentModeName = "Reaction";
-    sessionKicks = [];
-    isRoundActive = true; 
-    
+    let windowVal = document.getElementById('m2-window').value || 2.0;
+    currentModeName = "Reaction"; sessionKicks = []; isRoundActive = true;
     websocket.send(`M2|${name}|${count}|${min}|${max}|${windowVal}`);
     document.getElementById('dispName').innerText = name;
     document.getElementById('timer').innerText = "RXN";
@@ -398,85 +492,52 @@
   }
 
   function startSniperMode() {
-    isDNF = false;
-    isEndingProcessed = false;
+    isDNF = false; isEndingProcessed = false;
     const userSelect = document.getElementById('m3-user-select');
     const weightInput = document.getElementById('m3-target-weight');
     const kicksInput = document.getElementById('m3-kicks');
     const rangeDisp = document.getElementById('targetRangeDisp');
-
     if (!userSelect || !weightInput || !kicksInput) return;
-
     let name = userSelect.value;
     let weight = parseFloat(weightInput.value);
     let kicks = kicksInput.value || 10;
-    
-    if (!weight) {
-        alert("Please enter a Target Weight (kg) first!");
-        return;
-    }
-
+    if (!weight) { alert("Please enter a Target Weight (kg) first!"); return; }
     pssThreshold = Math.round((weight * 5) + 150);
     let perfectMax = pssThreshold + 100;
-
-    currentModeName = "Sniper"; 
-    sessionKicks = [];
-    isRoundActive = true; 
-    
+    currentModeName = "Sniper"; sessionKicks = []; isRoundActive = true;
     document.getElementById('dispName').innerText = name + " [" + weight + "kg]";
     document.getElementById('timer').innerText = pssThreshold;
-    
     if(rangeDisp) {
-        rangeDisp.innerHTML = 
-            `Target Zone: <span style="color:#00ffcc">${pssThreshold} - ${perfectMax}</span><br>` +
-            `<small>Below ${pssThreshold}: No Score | Above ${perfectMax}: Overkill</small>`;
+      rangeDisp.innerHTML = `Target Zone: <span style="color:#00ffcc">${pssThreshold} - ${perfectMax}</span><br>
+        <small>Below ${pssThreshold}: No Score | Above ${perfectMax}: Overkill</small>`;
     }
-    
     document.getElementById('statusMsg').innerText = "CALIBRATED. START KICKING!";
     document.getElementById('statusMsg').style.color = "#ffcc00";
-
     websocket.send(`M3|${name}|${kicks}|${pssThreshold}`);
     showScreen('scr-game');
   }
-  
-  function startTankCountdown(seconds) {
-      clearInterval(tankInterval);
-      let timeLeft = seconds;
-      const timerDisp = document.getElementById('timer');
-      
-      tankInterval = setInterval(() => {
-          timeLeft -= 0.1;
-          timerDisp.innerText = timeLeft.toFixed(1); 
-          
-          if (timeLeft <= 1.0) {
-              timerDisp.style.color = "#ff3e3e"; 
-          } else {
-              timerDisp.style.color = "#00ffcc";
-          }
 
-          if (timeLeft <= 0) {
-              clearInterval(tankInterval);
-          }
-      }, 100);
+  function startTankCountdown(seconds) {
+    clearInterval(tankInterval);
+    let timeLeft = seconds;
+    const timerDisp = document.getElementById('timer');
+    tankInterval = setInterval(() => {
+      timeLeft -= 0.1;
+      timerDisp.innerText = timeLeft.toFixed(1);
+      if (timeLeft <= 1.0) { timerDisp.style.color = "#ff3e3e"; } else { timerDisp.style.color = "#00ffcc"; }
+      if (timeLeft <= 0) clearInterval(tankInterval);
+    }, 100);
   }
 
   function startTankMode() {
-    isDNF = false;
-    isEndingProcessed = false;
+    isDNF = false; isEndingProcessed = false;
     const weight = parseFloat(document.getElementById('m3-target-weight').value);
     const user = document.getElementById('m3-user-select').value;
-
     if (!weight) { alert("Enter weight first!"); return; }
-
     pssThreshold = Math.round((weight * 5) + 150);
-    
-    currentModeName = "The Tank"; 
-    sessionKicks = []; 
-    isRoundActive = true; 
-    
+    currentModeName = "The Tank"; sessionKicks = []; isRoundActive = true;
     document.getElementById('dispName').innerText = "TANK: " + user;
-    startTankCountdown(3.0); 
-    
+    startTankCountdown(3.0);
     showScreen('scr-game');
     websocket.send(`M3_TANK|${user}|${weight}`);
   }
@@ -487,203 +548,143 @@
   function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-    
     if (id === 'scr-menu') {
-        const volContainer = document.getElementById('volume-container');
-        if (volContainer) {
-            volContainer.style.display = audioCtx ? "block" : "none";
-        }
+      const volContainer = document.getElementById('volume-container');
+      if (volContainer) volContainer.style.display = audioCtx ? "block" : "none";
     }
-
     if (id === 'scr-settings-m1') {
-        document.getElementById('m1-use-ankle').checked = false;
-        document.getElementById('ankle-status').innerText = "Status: Offline";
-        document.getElementById('ankle-status').style.color = "#666";
-        
-        const startBtn = document.getElementById('m1-start-btn');
-        if(startBtn) {
-            startBtn.disabled = false;
-            startBtn.style.background = "#28a745";
-            startBtn.innerText = "START";
-        }
+      document.getElementById('m1-use-ankle').checked = false;
+      document.getElementById('ankle-status').innerText = "Status: Offline";
+      document.getElementById('ankle-status').style.color = "#666";
+      const startBtn = document.getElementById('m1-start-btn');
+      if(startBtn) { startBtn.disabled = false; startBtn.style.background = "#28a745"; startBtn.innerText = "START"; }
     }
-    
     if (id !== 'scr-game') {
-        document.body.style.backgroundColor = "#121212";
-        document.getElementById('targetRangeDisp').innerText = "";
+      document.body.style.backgroundColor = "#121212";
+      document.getElementById('targetRangeDisp').innerText = "";
     }
-    
     if (id === 'scr-game') {
-        document.getElementById('dispKicks').innerText = "0";
-        document.getElementById('dispImpact').innerText = "--";
-        document.getElementById('statusMsg').innerText = "GET READY...";
-        document.getElementById('statusMsg').style.color = "#ffffff"; 
+      document.getElementById('dispKicks').innerText = "0";
+      document.getElementById('dispImpact').innerText = "--";
+      document.getElementById('statusMsg').innerText = "GET READY...";
+      document.getElementById('statusMsg').style.color = "#ffffff";
     }
-    
     if(id.includes('settings')) updateDropdowns();
   }
 
   function updateDropdowns() {
     const selects = document.querySelectorAll('.p-select');
     selects.forEach(sel => {
-        sel.innerHTML = '<option value="Guest">-- Select Fighter --</option>';
-        getDB().profiles.forEach(p => {
-          let opt = document.createElement('option');
-          opt.value = opt.innerText = p.name;
-          sel.appendChild(opt);
-        });
+      sel.innerHTML = '<option value="Guest">-- Select Fighter --</option>';
+      getDB().profiles.forEach(p => {
+        let opt = document.createElement('option');
+        opt.value = opt.innerText = p.name;
+        sel.appendChild(opt);
+      });
     });
   }
 
   function startTimer(s) {
     let t = s;
     document.getElementById('timer').innerText = t;
-    clearInterval(countdownTimer); 
-    
+    clearInterval(countdownTimer);
     countdownTimer = setInterval(() => {
       t--;
       document.getElementById('timer').innerText = (t < 0) ? 0 : t;
-      
       if(t <= 0) {
-          clearInterval(countdownTimer);
-          if (document.getElementById('scr-game').classList.contains('active') && 
-              document.getElementById('modal-over').style.display !== "flex") {
-              if (!isEndingProcessed) {
-                  isEndingProcessed = true;
-                  playSuccessTune();
-                  endGame(false); 
-              }
-          }
+        clearInterval(countdownTimer);
+        if (document.getElementById('scr-game').classList.contains('active') &&
+            document.getElementById('modal-over').style.display !== "flex") {
+          if (!isEndingProcessed) { isEndingProcessed = true; playSuccessTune(); endGame(false); }
+        }
       }
     }, 1000);
   }
 
   function endGame(premature = false) {
-    isDNF = premature; 
+    isDNF = premature;
     clearInterval(countdownTimer);
     if(tankInterval) clearInterval(tankInterval);
-    
     document.body.style.backgroundColor = "#121212";
     saveToHistory();
-    
-    isRoundActive = false; 
-    
+    isRoundActive = false;
     const modal = document.getElementById('modal-over');
     const summary = document.getElementById('modal-summary');
-    
     if (modal && summary) {
-        modal.style.display = "flex";
-        let maxP = sessionKicks.length ? Math.max(...sessionKicks.map(k => k.p)) : 0;
-        
-        if (isDNF) {
-            summary.innerHTML = `<span style='color:#ff3e3e; font-weight:bold;'>[DNF - PREMATURE END]</span><br>` +
-                                `<span style='color:#ffffff;'>Total Kicks: ${sessionKicks.length}<br>Max Power: ${maxP}</span>`;
-        } else {
-            summary.innerHTML = `<span style='color:#00ffcc; font-weight:bold;'>[SESSION COMPLETE!]</span><br>` +
-                                `<span style='color:#ffffff;'>Total Kicks: ${sessionKicks.length}<br>Max Power: ${maxP}</span>`;
-        }
-    } else {
-        viewFullLog();
-    }
+      modal.style.display = "flex";
+      let maxP = sessionKicks.length ? Math.max(...sessionKicks.map(k => k.p)) : 0;
+      if (isDNF) {
+        summary.innerHTML = `<span style='color:#ff3e3e; font-weight:bold;'>[DNF - PREMATURE END]</span><br>
+          <span style='color:#ffffff;'>Total Kicks: ${sessionKicks.length}<br>Max Power: ${maxP}</span>`;
+      } else {
+        summary.innerHTML = `<span style='color:#00ffcc; font-weight:bold;'>[SESSION COMPLETE!]</span><br>
+          <span style='color:#ffffff;'>Total Kicks: ${sessionKicks.length}<br>Max Power: ${maxP}</span>`;
+      }
+    } else { viewFullLog(); }
   }
 
-  function closeModal(targetScreen = 'scr-menu') { 
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-        websocket.send("STOP_GAME");
-    }
-
-    clearInterval(countdownTimer);
-    clearInterval(tankInterval);
-    
-    currentModeName = ""; 
-    isRoundActive = false; 
-    isEndingProcessed = false; // Release lock layout for the next dashboard session
-
-    document.getElementById('modal-over').style.display = "none"; 
+  function closeModal(targetScreen = 'scr-menu') {
+    if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
+    clearInterval(countdownTimer); clearInterval(tankInterval);
+    currentModeName = ""; isRoundActive = false; isEndingProcessed = false;
+    document.getElementById('modal-over').style.display = "none";
     showScreen(targetScreen);
   }
 
   function viewFullLog(historicalMode = "") {
     closeModal('scr-log');
-    
     const list = document.getElementById('log-list');
     const stats = document.getElementById('log-stats');
     list.innerHTML = "";
-    
-    let displayMode = historicalMode || currentModeName; 
-
+    let displayMode = historicalMode || currentModeName;
     let sumP = sessionKicks.reduce((a, b) => a + b.p, 0);
     let avgP = sessionKicks.length ? Math.round(sumP / sessionKicks.length) : 0;
-    
     stats.innerHTML = `<div style="margin-bottom:10px; font-weight:bold; color:#ffcc00">Mode: ${displayMode}</div>
       <strong>Avg Power:</strong> ${avgP} | <strong>Kicks:</strong> ${sessionKicks.length}`;
-
     sessionKicks.forEach((k, i) => {
       let line = `<span>Kick #${i+1}: </span><span style="color:#ff3e3e">Pwr: ${k.p}</span>`;
       if(k.r > 0 && k.r !== "TIMEOUT") line += ` <span style="color:#00ffcc">Rxn: ${k.r}ms</span>`;
       if(k.r === "TIMEOUT") line += ` <span style="color:#ff3e3e">TIMEOUT</span>`;
-      
       if(k.ang !== null && k.ang !== undefined) {
-         let alignColor = k.align === "SQUARE" ? "#00ffcc" : (k.align === "UNDER" ? "#ffcc00" : "#ff3e3e");
-         line += ` | <span style="color:${alignColor}">${k.align} (${k.ang}°)</span>`;
+        let alignColor = k.align === "SQUARE" ? "#00ffcc" : (k.align === "UNDER" ? "#ffcc00" : "#ff3e3e");
+        line += ` | <span style="color:${alignColor}">${k.align} (${k.ang}°)</span>`;
       }
       list.innerHTML += `<div class="log-row">${line}</div>`;
     });
   }
 
-  function updateSensDisp(val) {
-      document.getElementById('sens-val').innerText = val;
-  }
+  function updateSensDisp(val) { document.getElementById('sens-val').innerText = val; }
 
   function sendSensitivity(val) {
-      if (websocket && websocket.readyState === WebSocket.OPEN) {
-          websocket.send("SET_SENS|" + val);
-          localStorage.setItem('globalSensitivity', val);
-      }
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send("SET_SENS|" + val);
+      localStorage.setItem('globalSensitivity', val);
+    }
   }
 
   function saveToHistory() {
     let dispNameText = document.getElementById('dispName').innerText.trim();
-    
-    // 1. If it's a Guest or empty string, do not log to database profiles
     if(dispNameText === "Guest" || dispNameText === "") return;
-    
-    // 2. CLEANSE THE STRING: Strip away any custom layout wrappers or mode decorators
-    if (dispNameText.startsWith("TANK: ")) {
-        dispNameText = dispNameText.replace("TANK: ", ""); // Remove Tank prefix
-    }
-    if (dispNameText.includes("[")) {
-        dispNameText = dispNameText.split("[")[0].trim(); // Strip away " [87kg]" bracket text
-    }
-    
+    if (dispNameText.startsWith("TANK: ")) dispNameText = dispNameText.replace("TANK: ", "");
+    if (dispNameText.includes("[")) dispNameText = dispNameText.split("[")[0].trim();
     const db = getDB();
     let profileFound = false;
-
-    // 3. Construct your precision session workout history object matching your current save metrics
-    const workout = { 
-        date: new Date().toLocaleString(), 
-        mode: currentModeName || "Reaction Mode",
-        kicks: sessionKicks.length, 
-        allKicks: JSON.parse(JSON.stringify(sessionKicks)), 
-        maxP: sessionKicks.length ? Math.max(...sessionKicks.map(k => k.p)) : 0,
-        dnf: isDNF 
+    const workout = {
+      date: new Date().toLocaleString(),
+      mode: currentModeName || "Reaction Mode",
+      kicks: sessionKicks.length,
+      allKicks: JSON.parse(JSON.stringify(sessionKicks)),
+      maxP: sessionKicks.length ? Math.max(...sessionKicks.map(k => k.p)) : 0,
+      dnf: isDNF
     };
-    
-    // 4. Match against the cleansed profile name string precisely
-    db.profiles.forEach(p => { 
-        if(p.name.trim() === dispNameText) { 
-            if (!p.history) p.history = []; // Safety check for older profiles
-            p.history.push(workout); 
-            profileFound = true;
-            console.log(`[DATABASE] Session logged successfully under profile: ${p.name}`);
-        } 
+    db.profiles.forEach(p => {
+      if(p.name.trim() === dispNameText) {
+        if (!p.history) p.history = [];
+        p.history.push(workout);
+        profileFound = true;
+      }
     });
-    
-    if (profileFound) {
-        saveDB(db); // Commit write to browser LocalStorage cache engine
-    } else {
-        console.log(`[DATABASE ERROR] Could not map cleansed name "${dispNameText}" to an existing profile record.`);
-    }
+    if (profileFound) saveDB(db);
   }
 
   function openProfiles() {
@@ -704,27 +705,23 @@
     document.getElementById('det-name').innerText = p.name;
     document.getElementById('det-bio').innerHTML = `<strong>DOB:</strong> ${p.dob || 'N/A'}<br>
       <strong>Height:</strong> ${p.height}cm | <strong>Weight:</strong> ${p.weight}kg`;
-    
     const hDiv = document.getElementById('det-history');
     hDiv.innerHTML = "";
-
     if (!p.history || p.history.length === 0) {
-        hDiv.innerHTML = "<p style='color:#666;'>No history.</p>";
+      hDiv.innerHTML = "<p style='color:#666;'>No history.</p>";
     } else {
       [...p.history].reverse().forEach((h, revIdx) => {
         const actualIdx = p.history.length - 1 - revIdx;
         let avgP = (h.allKicks && h.allKicks.length) ? Math.round(h.allKicks.reduce((a,b) => a + b.p, 0) / h.allKicks.length) : 0;
         let modeColor = h.mode === "Reaction" ? "#00ffcc" : "#ffcc00";
         let dnfLabel = h.dnf ? "<span style='color:#ff3e3e; font-weight:bold;'> (DNF)</span>" : "";
-
         let sessionHtml = `
-        <div class="stat-card" onclick='showPastSession(${idx}, ${actualIdx})' style="cursor:pointer; text-align:left; font-size:0.85rem; border-left: 4px solid ${modeColor};">
-          <div style="float:right; color:${modeColor};">View ></div>
-          <span style="color:${modeColor}; font-weight:bold;">[${h.mode || 'Power'}]</span> 
-          <span style="color:#eee;">${h.date}</span>${dnfLabel}<br>
-          <span style="color:#ff3e3e">Max Pwr: ${h.maxP}</span> | Kicks: ${h.kicks} | Avg: ${avgP}
-        </div>`;
-        
+          <div class="stat-card" onclick='showPastSession(${idx}, ${actualIdx})' style="cursor:pointer; text-align:left; font-size:0.85rem; border-left: 4px solid ${modeColor};">
+            <div style="float:right; color:${modeColor};">View ></div>
+            <span style="color:${modeColor}; font-weight:bold;">[${h.mode || 'Power'}]</span>
+            <span style="color:#eee;">${h.date}</span>${dnfLabel}<br>
+            <span style="color:#ff3e3e">Max Pwr: ${h.maxP}</span> | Kicks: ${h.kicks} | Avg: ${avgP}
+          </div>`;
         hDiv.insertAdjacentHTML('beforeend', sessionHtml);
       });
     }
@@ -749,51 +746,42 @@
     openProfiles();
   }
 
- function manualEndSession() {
+  function manualEndSession() {
     if (confirm("End session now and save results?")) {
-        if (!isEndingProcessed) {
-            isEndingProcessed = true;
-            if (websocket && websocket.readyState === WebSocket.OPEN) {
-                websocket.send("STOP_GAME");
-            }
-            endGame(true); 
-        }
+      if (!isEndingProcessed) {
+        isEndingProcessed = true;
+        if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
+        endGame(true);
+      }
     }
   }
 
   function toggleAnkleDiscovery(checked) {
     const statusTxt = document.getElementById('ankle-status');
     const startBtn = document.getElementById('m1-start-btn');
-    
     if (checked) {
-        ankleConnected = false; 
-        statusTxt.innerText = "Searching for Ankle Sensor...";
-        statusTxt.style.color = "#ffcc00";
-        startBtn.disabled = true;
-        startBtn.style.background = "#444";
-        startBtn.innerText = "WAITING FOR PAIRING...";
-        
-        if (websocket && websocket.readyState === WebSocket.OPEN) {
-            websocket.send("SCAN_ANKLE|1");
-        }
+      ankleConnected = false;
+      statusTxt.innerText = "Searching for Ankle Sensor...";
+      statusTxt.style.color = "#ffcc00";
+      startBtn.disabled = true;
+      startBtn.style.background = "#444";
+      startBtn.innerText = "WAITING FOR PAIRING...";
+      if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("SCAN_ANKLE|1");
     } else {
-        ankleConnected = false;
-        statusTxt.innerText = "Status: Offline";
-        statusTxt.style.color = "#666";
-        startBtn.disabled = false;
-        startBtn.style.background = "#28a745";
-        startBtn.innerText = "START";
-        
-        if (websocket && websocket.readyState === WebSocket.OPEN) {
-            websocket.send("SCAN_ANKLE|0");
-        }
+      ankleConnected = false;
+      statusTxt.innerText = "Status: Offline";
+      statusTxt.style.color = "#666";
+      startBtn.disabled = false;
+      startBtn.style.background = "#28a745";
+      startBtn.innerText = "START";
+      if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("SCAN_ANKLE|0");
     }
   }
 
   window.onload = () => {
-      initWS();
-      let savedSens = localStorage.getItem('globalSensitivity') || 350;
-      document.getElementById('sens-slider').value = savedSens;
-      document.getElementById('sens-val').innerText = savedSens;
+    initWS();
+    let savedSens = localStorage.getItem('globalSensitivity') || 350;
+    document.getElementById('sens-slider').value = savedSens;
+    document.getElementById('sens-val').innerText = savedSens;
   };
 </script></body></html>
