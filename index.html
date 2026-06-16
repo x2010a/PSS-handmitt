@@ -45,9 +45,8 @@
       <div id="pair-requests"></div>
       <div id="pair-confirmed"></div>
       <p id="pair-empty" style="color: #555; font-size: 0.8rem; margin: 4px 0;">No sensors connected.</p>
-      <button class="pair-btn-remove" 
-        style="width:auto; margin-top:8px; font-size:0.8rem; padding:8px 16px;"
-        onclick="resetAllSensors()">RESET ALL SENSORS
+      <button id="reset-sensors-btn" class="pair-btn-remove" style="width:auto; margin-top:8px; font-size:0.8rem; padding:8px 16px;">
+          RESET ALL SENSORS
       </button>
     </div>
 
@@ -781,6 +780,21 @@
       if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("SCAN_ANKLE|0");
     }
   }
+
+  document.getElementById('reset-sensors-btn').addEventListener('click', function() {
+    console.log("[DEBUG] Reset button clicked");
+    if (confirm("Reset and unpair all sensors?")) {
+        if (websocket && websocket.readyState === WebSocket.OPEN) {
+            websocket.send("RESET_SENSORS");
+            console.log("[DEBUG] RESET_SENSORS sent");
+        } else {
+            console.log("[DEBUG] WebSocket not open");
+        }
+        pendingPairRequests = {};
+        pairedSensors = {};
+        renderPairingPanel();
+    }
+  });
 
   window.onload = () => {
     initWS();
