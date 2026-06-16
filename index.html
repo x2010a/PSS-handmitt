@@ -252,19 +252,19 @@
     }
     delete pendingPairRequests[mac];
     renderPairingPanel();
-}
-
-window.removePairing = function(mac) {
-    console.log("[DEBUG] Remove clicked: " + mac);
-    if (confirm("Remove this sensor?")) {
-        if (websocket && websocket.readyState === WebSocket.OPEN) {
-            websocket.send(`PAIR_REMOVE|${mac}`);
-            console.log("[DEBUG] Sent PAIR_REMOVE|" + mac);
-        }
-        delete pairedSensors[mac];
-        renderPairingPanel();
-    }
-}
+  }
+  
+  window.removePairing = function(mac) {
+      console.log("[DEBUG] Remove clicked: " + mac);
+      if (confirm("Remove this sensor?")) {
+          if (websocket && websocket.readyState === WebSocket.OPEN) {
+              websocket.send(`PAIR_REMOVE|${mac}`);
+              console.log("[DEBUG] Sent PAIR_REMOVE|" + mac);
+          }
+          delete pairedSensors[mac];
+          renderPairingPanel();
+      }
+  }
 
   // ==========================================
   // AUDIO
