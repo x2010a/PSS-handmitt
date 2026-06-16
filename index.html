@@ -202,6 +202,18 @@
   var pendingPairRequests = {}; // mac -> deviceID
   var pairedSensors = {};       // mac -> deviceID
 
+  function removePairing(mac) {
+    console.log("[DEBUG] Remove clicked for MAC: " + mac);
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.send(`PAIR_REMOVE|${mac}`);
+        console.log("[DEBUG] Sent PAIR_REMOVE|" + mac);
+    } else {
+        console.log("[DEBUG] WebSocket not open");
+    }
+    delete pairedSensors[mac];
+    renderPairingPanel();
+  }
+  
   function renderPairingPanel() {
     const reqDiv = document.getElementById('pair-requests');
     const confDiv = document.getElementById('pair-confirmed');
