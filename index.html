@@ -201,18 +201,6 @@
   // ==========================================
   var pendingPairRequests = {}; // mac -> deviceID
   var pairedSensors = {};       // mac -> deviceID
-
-  function removePairing(mac) {
-    console.log("[DEBUG] Remove clicked for MAC: " + mac);
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-        websocket.send(`PAIR_REMOVE|${mac}`);
-        console.log("[DEBUG] Sent PAIR_REMOVE|" + mac);
-    } else {
-        console.log("[DEBUG] WebSocket not open");
-    }
-    delete pairedSensors[mac];
-    renderPairingPanel();
-  }
   
   function renderPairingPanel() {
     const reqDiv = document.getElementById('pair-requests');
@@ -257,21 +245,26 @@
     emptyMsg.style.display = hasContent ? "none" : "block";
   }
 
-  function approvePairing(mac, deviceID) {
+  window.approvePairing = function(mac, deviceID) {
+    console.log("[DEBUG] Approve clicked: " + mac + " " + deviceID);
     if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(`PAIR_APPROVE|${mac}|${deviceID}`);
+        websocket.send(`PAIR_APPROVE|${mac}|${deviceID}`);
     }
     delete pendingPairRequests[mac];
     renderPairingPanel();
-  }
+}
 
-  function removePairing(mac) {
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(`PAIR_REMOVE|${mac}`);
+window.removePairing = function(mac) {
+    console.log("[DEBUG] Remove clicked: " + mac);
+    if (confirm("Remove this sensor?")) {
+        if (websocket && websocket.readyState === WebSocket.OPEN) {
+            websocket.send(`PAIR_REMOVE|${mac}`);
+            console.log("[DEBUG] Sent PAIR_REMOVE|" + mac);
+        }
+        delete pairedSensors[mac];
+        renderPairingPanel();
     }
-    delete pairedSensors[mac];
-    renderPairingPanel();
-  }
+}
 
   // ==========================================
   // AUDIO
