@@ -1078,25 +1078,19 @@
     m4Combo++;
     if (m4Combo > m4BestCombo) m4BestCombo = m4Combo;
     const dist = Math.abs(note.y - M4_HIT_Y);
-    if (dist < cfg.hitWindow * 0.35) {
-    m4Score += 300 * m4Combo;
-    m4ShowFeedback('Perfect!', '#00ffcc');
-    playHitSound();
-    //m4PerfectFlash = true;
-    // Flash all 10 LEDs green
-      //for (let i = 0; i < 10; i++) {
-      //    document.getElementById('m4-led-' + i).style.background = '#639922';
-      //}
-      //setTimeout(() => { m4PerfectFlash = false; }, 300);
-    } else if (dist < cfg.hitWindow * 0.7) {
-        m4Score += 150 * m4Combo;
-        m4ShowFeedback('Good', '#28a745');
-        playHitSound();
-    } else {
-        m4Score += 50 * m4Combo;
-        m4ShowFeedback('OK', '#ffcc00');
-        playHitSound();
-    }
+    if (dist < physicalHitWindow * 0.15) {
+      // Perfect — very close to hit line
+      m4Score += 300 * m4Combo;
+      m4ShowFeedback('Perfect!', '#00ffcc');
+  } else if (dist < physicalHitWindow * 0.40) {
+      // Good
+      m4Score += 150 * m4Combo;
+      m4ShowFeedback('Good', '#28a745');
+  } else {
+      // OK
+      m4Score += 50 * m4Combo;
+      m4ShowFeedback('OK', '#ffcc00');
+  }
     updateM4HUD();
   }
   
