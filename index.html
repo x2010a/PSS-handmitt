@@ -53,6 +53,7 @@
     <button onclick="showScreen('scr-settings-m1')">2. START MODE 1 (TIME)</button>
     <button onclick="showScreen('scr-settings-m2')">3. START MODE 2 (REACTION)</button>
     <button onclick="showScreen('scr-settings-m3')">4. START MODE 3 (PSS Efficiency)</button>
+    <button onclick="showScreen('scr-settings-m4')">4. START MODE 4 (RHYTHM)</button>
     <button class="secondary" onclick="openProfiles()">USER PROFILES</button>
 
     <div class="stat-card" style="border-color: #555; margin-top: 25px;">
@@ -121,6 +122,65 @@
     <button class="secondary" onclick="showScreen('scr-menu')" style="margin-top: 20px;">BACK</button>
   </div>
 
+  <div id="scr-settings-m4" class="screen">
+    <h2 style="color:#00ffcc;">Mode 4: Rhythm</h2>
+    <p style="color:#666; margin-top:-10px;">Kick to the beat</p>
+  
+    <select class="p-select" id="m4-profile">
+      <option value="Guest">-- Select Fighter --</option>
+    </select>
+  
+    <select id="m4-music" style="text-align:center; padding:15px; margin:10px; width:85%; max-width:300px; border-radius:8px; border:none; background:#2a2a2a; color:white; font-size:1rem;">
+      <option value="track1">Track 1 — Warm Up (90 BPM)</option>
+      <option value="track2">Track 2 — Fight Night (120 BPM)</option>
+      <option value="track3">Track 3 — Champion (140 BPM)</option>
+    </select>
+  
+    <div class="stat-card" style="border-color:#444;">
+      <p style="margin:0 0 10px 0; font-size:0.85rem; color:#aaa; font-weight:bold;">DIFFICULTY</p>
+      <div style="display:flex; justify-content:center; gap:10px;">
+        <button id="m4-diff-easy" onclick="setM4Diff('easy')" style="width:auto; padding:12px 20px; background:#28a745;">EASY</button>
+        <button id="m4-diff-medium" onclick="setM4Diff('medium')" style="width:auto; padding:12px 20px; background:#444;">MEDIUM</button>
+        <button id="m4-diff-hard" onclick="setM4Diff('hard')" style="width:auto; padding:12px 20px; background:#444;">HARD</button>
+      </div>
+    </div>
+  
+    <button onclick="startMode4()">START</button>
+    <button class="secondary" onclick="showScreen('scr-menu')">BACK</button>
+  </div>
+
+  <div id="scr-game-m4" class="screen">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:0 10px; max-width:400px; margin:0 auto;">
+      <div style="text-align:center;">
+        <div id="m4-score" style="font-size:1.8rem; font-weight:bold; color:#00ffcc;">0</div>
+        <div style="font-size:0.75rem; color:#666;">SCORE</div>
+      </div>
+      <div style="text-align:center;">
+        <div id="m4-combo" style="font-size:1.8rem; font-weight:bold; color:#ffcc00;">0x</div>
+        <div style="font-size:0.75rem; color:#666;">COMBO</div>
+      </div>
+      <div style="text-align:center;">
+        <div id="m4-acc" style="font-size:1.8rem; font-weight:bold; color:#fff;">—</div>
+        <div style="font-size:0.75rem; color:#666;">ACC</div>
+      </div>
+      <button onclick="stopMode4()" style="width:auto; padding:8px 16px; font-size:0.85rem; background:#c0392b;">END</button>
+    </div>
+  
+    <!-- LED STRIP -->
+    <div id="m4-leds" style="display:flex; gap:5px; justify-content:center; padding:8px 0; max-width:400px; margin:0 auto;"></div>
+  
+    <!-- HIGHWAY -->
+    <canvas id="m4-highway" width="300" height="400" style="display:block; margin:0 auto; border-radius:8px; background:#1a1a1a;"></canvas>
+  
+    <!-- FEEDBACK -->
+    <div id="m4-feedback" style="text-align:center; height:32px; font-size:1.4rem; font-weight:bold; margin:4px 0; color:#00ffcc;"></div>
+  
+    <!-- KICK BUTTON -->
+    <button id="m4-kick-btn" onclick="m4Kick()" style="background:#333; border:2px solid #555; font-size:1.3rem; padding:16px 0; margin-top:4px;">
+      KICK &nbsp;[SPACE]
+    </button>
+  </div>
+  
   <div id="scr-game" class="screen">
     <h2 id="dispName" style="color: #00ffcc;">Fighter</h2>
     <div id="timer">00</div>
@@ -201,6 +261,29 @@
   // ==========================================
   var pendingPairRequests = {}; // mac -> deviceID
   var pairedSensors = {};       // mac -> deviceID
+
+  // ==========================================
+  // MODE 4 — RHYTHM GAME
+  // ==========================================
+  var m4Diff = 'easy';
+  var m4Running = false;
+  var m4AnimFrame;
+  var m4SpawnTimer;
+  var m4Notes = [];
+  var m4Score = 0, m4Combo = 0, m4BestCombo = 0, m4Hits = 0, m4Misses = 0, m4Total = 0;
+  var m4LastTs = 0;
+
+  var M4_CONFIGS = {
+    easy:   { speedPx: 1.8, minGap: 1600, maxGap: 3200, hitWindow: 75 },
+    medium: { speedPx: 2.8, minGap: 1000, maxGap: 2200, hitWindow: 52 },
+    hard:   { speedPx: 4.0, minGap:  600, maxGap: 1400, hitWindow: 34 }
+  };
+  
+  var m4Canvas, m4Ctx;
+  var M4_W = 300, M4_H = 400;
+  var M4_LANE_X = 150;
+  var M4_HIT_Y = 340;
+  var M4_NOTE_R = 20;
   
   function renderPairingPanel() {
     const reqDiv = document.getElementById('pair-requests');
@@ -801,6 +884,221 @@
     }
   });
 
+  // ==========================================
+  // MODE 4 — RHYTHM GAME
+  // ==========================================
+  function setM4Diff(d) {
+    m4Diff = d;
+    ['easy','medium','hard'].forEach(x => {
+      document.getElementById('m4-diff-' + x).style.background = x === d ? '#28a745' : '#444';
+    });
+  }
+  
+  function buildM4LEDs() {
+    const strip = document.getElementById('m4-leds');
+    strip.innerHTML = '';
+    for (let i = 0; i < 10; i++) {
+      const led = document.createElement('div');
+      led.id = 'm4-led-' + i;
+      led.style.cssText = 'width:26px; height:26px; border-radius:50%; background:#333; border:1px solid #444; transition:background 0.08s;';
+      strip.appendChild(led);
+    }
+  }
+  
+  function updateM4LEDs(nearestNote) {
+    if (!nearestNote) {
+      for (let i = 0; i < 10; i++) document.getElementById('m4-led-' + i).style.background = '#333';
+      return;
+    }
+    const travel = M4_H + M4_NOTE_R;
+    const pct = Math.max(0, Math.min(1, (nearestNote.y + M4_NOTE_R) / travel));
+    const lit = Math.round(pct * 10);
+    for (let i = 0; i < 10; i++) {
+      const el = document.getElementById('m4-led-' + i);
+      if (i < lit) {
+        if (lit >= 8)      el.style.background = '#E24B4A'; // red
+        else if (lit >= 5) el.style.background = '#EF9F27'; // amber
+        else               el.style.background = '#639922'; // green
+      } else {
+        el.style.background = '#333';
+      }
+    }
+    // Send LED state to hub
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send('M4_LED|' + lit);
+    }
+  }
+  
+  function startMode4() {
+    m4Canvas = document.getElementById('m4-highway');
+    m4Ctx = m4Canvas.getContext('2d');
+    m4Notes = []; m4Score = 0; m4Combo = 0; m4BestCombo = 0;
+    m4Hits = 0; m4Misses = 0; m4Total = 0;
+    m4Running = true;
+    buildM4LEDs();
+    updateM4HUD();
+    showScreen('scr-game-m4');
+  
+    const cfg = M4_CONFIGS[m4Diff];
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send('M4_START|' + m4Diff);
+    }
+  
+    // Schedule first note
+    setTimeout(m4SpawnNote, 1000 + Math.random() * 500);
+    m4LastTs = 0;
+    requestAnimationFrame(m4Loop);
+  }
+  
+  function m4SpawnNote() {
+    if (!m4Running) return;
+    const cfg = M4_CONFIGS[m4Diff];
+    const travelMs = Math.round((M4_H + M4_NOTE_R) / cfg.speedPx * 16);
+    m4Notes.push({ y: -M4_NOTE_R, hit: false, missed: false });
+    m4Total++;
+  
+    // Tell hub how long until this note hits the line
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send('M4_NOTE|' + travelMs);
+    }
+  
+    // Schedule next note at random interval
+    const gap = cfg.minGap + Math.random() * (cfg.maxGap - cfg.minGap);
+    m4SpawnTimer = setTimeout(m4SpawnNote, gap);
+  }
+  
+  function m4Loop(ts) {
+    if (!m4Running) return;
+    const cfg = M4_CONFIGS[m4Diff];
+    const dt = m4LastTs ? Math.min(ts - m4LastTs, 50) : 16;
+    m4LastTs = ts;
+  
+    m4Notes.forEach(n => {
+      if (!n.hit && !n.missed) n.y += cfg.speedPx * (dt / 16);
+      if (!n.hit && !n.missed && n.y > M4_HIT_Y + cfg.hitWindow + 10) {
+        n.missed = true;
+        m4Combo = 0;
+        m4Misses++;
+        m4ShowFeedback('Miss', '#E24B4A');
+        updateM4HUD();
+      }
+    });
+    m4Notes = m4Notes.filter(n => n.y < M4_H + 40);
+  
+    m4Ctx.clearRect(0, 0, M4_W, M4_H);
+    m4DrawLane(cfg);
+    m4Notes.forEach(n => { if (!n.hit) m4DrawNote(n); });
+  
+    // Update LEDs based on nearest note
+    const active = m4Notes.filter(n => !n.hit && !n.missed).sort((a,b) => b.y - a.y);
+    updateM4LEDs(active.length ? active[0] : null);
+  
+    m4AnimFrame = requestAnimationFrame(m4Loop);
+  }
+  
+  function m4DrawLane(cfg) {
+    m4Ctx.fillStyle = '#1a1a1a';
+    m4Ctx.fillRect(0, 0, M4_W, M4_H);
+    m4Ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    m4Ctx.beginPath();
+    m4Ctx.roundRect(M4_LANE_X - 40, 0, 80, M4_H, 6);
+    m4Ctx.fill();
+    // Hit line
+    m4Ctx.strokeStyle = 'rgba(226,75,74,0.5)';
+    m4Ctx.lineWidth = 2;
+    m4Ctx.beginPath();
+    m4Ctx.moveTo(M4_LANE_X - 40, M4_HIT_Y);
+    m4Ctx.lineTo(M4_LANE_X + 40, M4_HIT_Y);
+    m4Ctx.stroke();
+    // Hit window zone
+    m4Ctx.fillStyle = 'rgba(226,75,74,0.06)';
+    m4Ctx.fillRect(M4_LANE_X - 40, M4_HIT_Y - cfg.hitWindow, 80, cfg.hitWindow * 2);
+  }
+  
+  function m4DrawNote(n) {
+    const dist = M4_HIT_Y - n.y;
+    const travel = M4_H + M4_NOTE_R;
+    const pct = Math.max(0, Math.min(1, 1 - dist / travel));
+    let color;
+    if (pct < 0.45)      color = '#639922'; // green — far
+    else if (pct < 0.75) color = '#EF9F27'; // amber — mid
+    else                 color = '#E24B4A'; // red — close
+    m4Ctx.beginPath();
+    m4Ctx.arc(M4_LANE_X, n.y, M4_NOTE_R, 0, Math.PI * 2);
+    m4Ctx.fillStyle = color;
+    m4Ctx.fill();
+    m4Ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    m4Ctx.lineWidth = 1.5;
+    m4Ctx.stroke();
+  }
+  
+  function m4Kick() {
+    if (!m4Running) return;
+    const cfg = M4_CONFIGS[m4Diff];
+    const candidates = m4Notes.filter(n => !n.hit && !n.missed && Math.abs(n.y - M4_HIT_Y) <= cfg.hitWindow);
+    if (!candidates.length) {
+      m4Combo = 0;
+      m4ShowFeedback('Early!', '#BA7517');
+      updateM4HUD();
+      return;
+    }
+    const note = candidates.sort((a,b) => Math.abs(a.y - M4_HIT_Y) - Math.abs(b.y - M4_HIT_Y))[0];
+    note.hit = true;
+    m4Hits++;
+    m4Combo++;
+    if (m4Combo > m4BestCombo) m4BestCombo = m4Combo;
+    const dist = Math.abs(note.y - M4_HIT_Y);
+    if (dist < cfg.hitWindow * 0.35) {
+      m4Score += 300 * m4Combo;
+      m4ShowFeedback('Perfect!', '#00ffcc');
+      playHitSound();
+    } else if (dist < cfg.hitWindow * 0.7) {
+      m4Score += 150 * m4Combo;
+      m4ShowFeedback('Good', '#28a745');
+      playHitSound();
+    } else {
+      m4Score += 50 * m4Combo;
+      m4ShowFeedback('OK', '#ffcc00');
+      playHitSound();
+    }
+    updateM4HUD();
+  }
+  
+  function m4ShowFeedback(txt, color) {
+    const el = document.getElementById('m4-feedback');
+    el.textContent = txt;
+    el.style.color = color;
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.textContent = '', 600);
+  }
+  
+  function updateM4HUD() {
+    document.getElementById('m4-score').innerText = m4Score.toLocaleString();
+    document.getElementById('m4-combo').innerText = m4Combo + 'x';
+    const tot = m4Hits + m4Misses;
+    document.getElementById('m4-acc').innerText = tot ? Math.round(m4Hits / tot * 100) + '%' : '—';
+  }
+  
+  function stopMode4() {
+    m4Running = false;
+    cancelAnimationFrame(m4AnimFrame);
+    clearTimeout(m4SpawnTimer);
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send('M4_STOP');
+    }
+    showScreen('scr-menu');
+  }
+  
+  // Spacebar listener for Mode 4
+  document.addEventListener('keydown', function(e) {
+    if (e.code === 'Space' && document.getElementById('scr-game-m4').classList.contains('active')) {
+      e.preventDefault();
+      m4Kick();
+    }
+  });
+
+
+  
   window.onload = () => {
     initWS();
     let savedSens = localStorage.getItem('globalSensitivity') || 350;
