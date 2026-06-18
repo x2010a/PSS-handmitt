@@ -460,8 +460,8 @@
           return;
         }
         if (msg.type === "M4_HIT") {
-          console.log("[M4] Hit received from hub, calling m4Kick()");
-          m4Kick();
+          const latencyMs = Date.now() - msg.hitMs;
+          m4Kick(latencyMs);
           return;
         }
         
@@ -895,6 +895,15 @@
   // ==========================================
   // MODE 4 — RHYTHM GAME
   // ==========================================
+  function m4Kick(latencyMs = 0) {
+    if (!m4Running) return;
+    const cfg = M4_CONFIGS[m4Diff];
+    const rewindPx = (latencyMs / 16) * cfg.speedPx; // how far note moved during latency
+    const candidates = m4Notes.filter(n => 
+        !n.hit && !n.missed && 
+        Math.abs((n.y - rewindPx) - M4_HIT_Y) <= cfg.hitWindow
+    );
+  
   function setM4Diff(d) {
     m4Diff = d;
     ['easy','medium','hard'].forEach(x => {
@@ -985,7 +994,7 @@
   
     m4Notes.forEach(n => {
       if (!n.hit && !n.missed) n.y += cfg.speedPx * (dt / 16);
-      if (!n.hit && !n.missed && n.y > M4_HIT_Y + cfg.hitWindow + 10) {
+      if (!n.hit && !n.missed && n.y > M4_HIT_Y + cfg.hitWindow + 30) {
         n.missed = true;
         m4Combo = 0;
         m4Misses++;
