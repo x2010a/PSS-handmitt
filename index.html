@@ -1047,6 +1047,7 @@
     if (!m4Running) return;
     const cfg = M4_CONFIGS[m4Diff];
     const candidates = m4Notes.filter(n => !n.hit && !n.missed && Math.abs(n.y - M4_HIT_Y) <= cfg.hitWindow);
+    console.log("[M4] candidates:", candidates.length, "hitWindow:", cfg.hitWindow, "note y:", m4Notes[0]?.y, "HIT_Y:", M4_HIT_Y);
     if (!candidates.length) {
       m4Combo = 0;
       m4ShowFeedback('Early!', '#BA7517');
