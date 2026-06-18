@@ -963,7 +963,7 @@
     }
     const travel = M4_HIT_Y + M4_NOTE_R;
     const pct = Math.max(0, Math.min(1, (nearestNote.y + M4_NOTE_R) / travel));
-    const lit = Math.round(pct * 10);
+    const lit = 10 - Math.round(pct * 10);
     for (let i = 0; i < 10; i++) {
         const el = document.getElementById('m4-led-' + i);
         if (i < lit) {
