@@ -1000,7 +1000,7 @@
     if (!m4Running) return;
     const cfg = M4_CONFIGS[m4Diff];
     const travelMs = Math.round((M4_H + M4_NOTE_R) / cfg.speedPx * 16);
-    m4Notes.push({ y: -M4_NOTE_R, hit: false, missed: false });
+    m4Notes.push({ y: -M4_NOTE_R, hit: false, missed: false, spawnTime: Date.now() });
     m4Total++;
   
     // Tell hub how long until this note hits the line
@@ -1022,11 +1022,14 @@
     m4Notes.forEach(n => {
       if (!n.hit && !n.missed) n.y += cfg.speedPx * (dt / 16);
       if (!n.hit && !n.missed && n.y > M4_HIT_Y + (cfg.hitWindow * 2) + 10) {
-        n.missed = true;
-        m4Combo = 0;
-        m4Misses++;
-        m4ShowFeedback('Miss', '#E24B4A');
-        updateM4HUD();
+        const age = Date.now() - n.spawnTime;
+        if (age > 200) { // grace period
+            n.missed = true;
+            m4Combo = 0;
+            m4Misses++;
+            m4ShowFeedback('Miss', '#E24B4A');
+            updateM4HUD();
+        }
       }
     });
     m4Notes = m4Notes.filter(n => n.y < M4_H + 200);
