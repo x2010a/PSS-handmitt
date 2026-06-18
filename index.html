@@ -462,7 +462,7 @@
         }
         if (msg.type === "M4_HIT") {
           const cfg = M4_CONFIGS[m4Diff];
-          const physicalHitWindow = cfg.hitWindow * 2;
+          const physicalHitWindow = cfg.hitWindow * 2.5;
           const candidates = m4Notes.filter(n =>
               !n.hit && !n.missed &&
               Math.abs(n.y - M4_HIT_Y) <= physicalHitWindow
@@ -1029,7 +1029,7 @@
     m4Notes.forEach(n => {
       if (!n.hit && !n.missed) n.y += cfg.speedPx * (dt / 16);
       if (!n.hit && !n.missed && n.y > M4_HIT_Y + cfg.hitWindow + 30) {
-          const physWindow = cfg.hitWindow * 2;
+          const physWindow = cfg.hitWindow * 2.5;
           if (Math.abs(n.y - M4_HIT_Y) > physWindow) {
               n.missed = true;
               m4Combo = 0;
@@ -1039,7 +1039,7 @@
           }
       }
     });
-    m4Notes = m4Notes.filter(n => n.y < M4_H + 160);
+    m4Notes = m4Notes.filter(n => n.y < M4_H + 200);
   
     m4Ctx.clearRect(0, 0, M4_W, M4_H);
     m4DrawLane(cfg);
