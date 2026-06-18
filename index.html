@@ -916,9 +916,9 @@
     for (let i = 0; i < 10; i++) {
       const el = document.getElementById('m4-led-' + i);
       if (i < lit) {
-        if (lit >= 8)      el.style.background = '#E24B4A'; // red
+        if (lit >= 8)      el.style.background = '#639922'; // green
         else if (lit >= 5) el.style.background = '#EF9F27'; // amber
-        else               el.style.background = '#639922'; // green
+        else               el.style.background = '#E24B4A'; // red
       } else {
         el.style.background = '#333';
       }
@@ -1020,9 +1020,9 @@
     const travel = M4_H + M4_NOTE_R;
     const pct = Math.max(0, Math.min(1, 1 - dist / travel));
     let color;
-    if (pct < 0.45)      color = '#639922'; // green — far
+    if (pct < 0.45)      color = '#E24B4A'; // red — far
     else if (pct < 0.75) color = '#EF9F27'; // amber — mid
-    else                 color = '#E24B4A'; // red — close
+    else                 color = '#639922'; // green — close
     m4Ctx.beginPath();
     m4Ctx.arc(M4_LANE_X, n.y, M4_NOTE_R, 0, Math.PI * 2);
     m4Ctx.fillStyle = color;
@@ -1049,17 +1049,22 @@
     if (m4Combo > m4BestCombo) m4BestCombo = m4Combo;
     const dist = Math.abs(note.y - M4_HIT_Y);
     if (dist < cfg.hitWindow * 0.35) {
-      m4Score += 300 * m4Combo;
-      m4ShowFeedback('Perfect!', '#00ffcc');
-      playHitSound();
+    m4Score += 300 * m4Combo;
+    m4ShowFeedback('Perfect!', '#00ffcc');
+    playHitSound();
+    // Flash all 10 LEDs green
+      for (let i = 0; i < 10; i++) {
+          document.getElementById('m4-led-' + i).style.background = '#639922';
+      }
+        setTimeout(() => updateM4LEDs(null), 300);
     } else if (dist < cfg.hitWindow * 0.7) {
-      m4Score += 150 * m4Combo;
-      m4ShowFeedback('Good', '#28a745');
-      playHitSound();
+        m4Score += 150 * m4Combo;
+        m4ShowFeedback('Good', '#28a745');
+        playHitSound();
     } else {
-      m4Score += 50 * m4Combo;
-      m4ShowFeedback('OK', '#ffcc00');
-      playHitSound();
+        m4Score += 50 * m4Combo;
+        m4ShowFeedback('OK', '#ffcc00');
+        playHitSound();
     }
     updateM4HUD();
   }
