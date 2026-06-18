@@ -272,6 +272,7 @@
   var m4Notes = [];
   var m4Score = 0, m4Combo = 0, m4BestCombo = 0, m4Hits = 0, m4Misses = 0, m4Total = 0;
   var m4LastTs = 0;
+  var m4LastLedSend = 0; 
   //var m4PerfectFlash = false;
 
   var M4_CONFIGS = {
@@ -950,28 +951,34 @@
   }
   
   function updateM4LEDs(nearestNote) {
-    //if (m4PerfectFlash) return;
     if (!nearestNote) {
-      for (let i = 0; i < 10; i++) document.getElementById('m4-led-' + i).style.background = '#333';
-      return;
+        for (let i = 0; i < 10; i++) document.getElementById('m4-led-' + i).style.background = '#333';
+        // Throttle send
+        const now = Date.now();
+        if (websocket && websocket.readyState === WebSocket.OPEN && now - m4LastLedSend >= 80) {
+            websocket.send('M4_LED|0');
+            m4LastLedSend = now;
+        }
+        return;
     }
     const travel = M4_HIT_Y + M4_NOTE_R;
     const pct = Math.max(0, Math.min(1, (nearestNote.y + M4_NOTE_R) / travel));
-    //const lit = pct >= 0.85 ? 10 : Math.round(pct * 10);
     const lit = Math.round(pct * 10);
     for (let i = 0; i < 10; i++) {
-      const el = document.getElementById('m4-led-' + i);
-      if (i < lit) {
-        if (lit >= 8)      el.style.background = '#639922'; // green
-        else if (lit >= 5) el.style.background = '#EF9F27'; // amber
-        else               el.style.background = '#E24B4A'; // red
-      } else {
-        el.style.background = '#333';
-      }
+        const el = document.getElementById('m4-led-' + i);
+        if (i < lit) {
+            if (lit >= 8)      el.style.background = '#639922';
+            else if (lit >= 5) el.style.background = '#EF9F27';
+            else               el.style.background = '#E24B4A';
+        } else {
+            el.style.background = '#333';
+        }
     }
-    // Send LED state to hub
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send('M4_LED|' + lit);
+    // Throttle send to 80ms
+    const now = Date.now();
+    if (websocket && websocket.readyState === WebSocket.OPEN && now - m4LastLedSend >= 80) {
+        websocket.send('M4_LED|' + lit);
+        m4LastLedSend = now;
     }
   }
   
