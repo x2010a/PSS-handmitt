@@ -272,6 +272,7 @@
   var m4Notes = [];
   var m4Score = 0, m4Combo = 0, m4BestCombo = 0, m4Hits = 0, m4Misses = 0, m4Total = 0;
   var m4LastTs = 0;
+  var m4PerfectFlash = false;
 
   var M4_CONFIGS = {
     easy:   { speedPx: 1.8, minGap: 1600, maxGap: 3200, hitWindow: 75 },
@@ -906,6 +907,7 @@
   }
   
   function updateM4LEDs(nearestNote) {
+    if (m4PerfectFlash) return;
     if (!nearestNote) {
       for (let i = 0; i < 10; i++) document.getElementById('m4-led-' + i).style.background = '#333';
       return;
@@ -1052,11 +1054,12 @@
     m4Score += 300 * m4Combo;
     m4ShowFeedback('Perfect!', '#00ffcc');
     playHitSound();
+    m4PerfectFlash = true;
     // Flash all 10 LEDs green
       for (let i = 0; i < 10; i++) {
           document.getElementById('m4-led-' + i).style.background = '#639922';
       }
-        setTimeout(() => updateM4LEDs(null), 300);
+      setTimeout(() => { m4PerfectFlash = false; }, 300);
     } else if (dist < cfg.hitWindow * 0.7) {
         m4Score += 150 * m4Combo;
         m4ShowFeedback('Good', '#28a745');
