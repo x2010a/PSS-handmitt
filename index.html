@@ -461,7 +461,7 @@
         }
         if (msg.type === "M4_HIT") {
           const cfg = M4_CONFIGS[m4Diff];
-          const physicalHitWindow = cfg.hitWindow * 3;
+          const physicalHitWindow = cfg.hitWindow * 2;
           const candidates = m4Notes.filter(n =>
               !n.hit && !n.missed &&
               Math.abs(n.y - M4_HIT_Y) <= physicalHitWindow
