@@ -499,11 +499,6 @@
         return;
       }
 
-      if (msg.type === "M4_HIT") {
-          m4Kick();
-          return;
-      }
-
       try {
         const data = JSON.parse(evt.data);
         let device = data.device;
@@ -529,6 +524,11 @@
           } else {
             msg.innerText = "OVERKILL"; msg.style.color = "#ffcc00";
           }
+        }
+
+        if (msg.type === "M4_HIT") {
+          m4Kick();
+          return;
         }
 
         if (device === "ANKLE" || angle > 0) {
