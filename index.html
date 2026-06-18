@@ -459,6 +459,11 @@
           renderPairingPanel();
           return;
         }
+        if (msg.type === "M4_HIT") {
+          m4Kick();
+          return;
+        }
+        
       } catch(e) {
         // Not JSON pairing message — fall through to game logic below
       }
@@ -495,8 +500,9 @@
       }
 
       if (document.getElementById('modal-over').style.display === "flex" ||
-          !document.getElementById('scr-game').classList.contains('active')) {
-        return;
+          (!document.getElementById('scr-game').classList.contains('active') &&
+           !document.getElementById('scr-game-m4').classList.contains('active'))) {
+          return;
       }
 
       try {
@@ -524,11 +530,6 @@
           } else {
             msg.innerText = "OVERKILL"; msg.style.color = "#ffcc00";
           }
-        }
-
-        if (msg.type === "M4_HIT") {
-          m4Kick();
-          return;
         }
 
         if (device === "ANKLE" || angle > 0) {
