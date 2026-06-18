@@ -963,12 +963,12 @@
     }
     const travel = M4_HIT_Y + M4_NOTE_R;
     const pct = Math.max(0, Math.min(1, (nearestNote.y + M4_NOTE_R) / travel));
-    const lit = 10 - Math.round(pct * 10);
+    const lit = Math.round(pct * 10);
     for (let i = 0; i < 10; i++) {
         const el = document.getElementById('m4-led-' + i);
         if (i < lit) {
-            if (lit >= 8)      el.style.background = '#E24B4A';
-            else if (lit >= 5) el.style.background = '#EF9F27';
+            if (lit <= 3)      el.style.background = '#E24B4A';
+            else if (lit >= 6) el.style.background = '#EF9F27';
             else               el.style.background = '#639922';
         } else {
             el.style.background = '#333';
