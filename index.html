@@ -1021,7 +1021,7 @@
   
     m4Notes.forEach(n => {
       if (!n.hit && !n.missed) n.y += cfg.speedPx * (dt / 16);
-      if (!n.hit && !n.missed && n.y > M4_HIT_Y + (cfg.hitWindow * 2) + 10) {
+      if (!n.hit && !n.missed && n.y > M4_HIT_Y + cfg.hitWindow + 30) {
         n.missed = true;
         m4Combo = 0;
         m4Misses++;
