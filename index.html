@@ -485,7 +485,7 @@
           } else if (dist < physicalHitWindow * 0.35) {
               m4Score += 150 * m4Combo;
               m4ShowFeedback('Good', '#28a745');
-          } else if (dist < physicalHitWindow * 0.60) {  // CHANGE 1.0 to 0.60
+          } else if (dist < physicalHitWindow * 0.60) {
               m4Score += 50 * m4Combo;
               m4ShowFeedback('OK', '#ffcc00');
           } else {
@@ -494,6 +494,10 @@
               updateM4HUD();
               return;
           }
+          playHitSound();
+          updateM4HUD();
+          return;
+        }
         
       } catch(e) {
         // Not JSON pairing message — fall through to game logic below
