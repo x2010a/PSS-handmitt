@@ -460,6 +460,7 @@
           return;
         }
         if (msg.type === "M4_HIT") {
+          console.log("[M4] Hit received from hub, calling m4Kick()");
           m4Kick();
           return;
         }
