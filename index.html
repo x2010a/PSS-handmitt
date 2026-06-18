@@ -461,7 +461,12 @@
         }
         if (msg.type === "M4_HIT") {
           const latencyMs = Date.now() - msg.hitMs;
-          m4Kick(latencyMs);
+          const cfg = M4_CONFIGS[m4Diff];
+          const rewindPx = (latencyMs / 16) * cfg.speedPx;
+          // Temporarily rewind note positions before calling kick
+          m4Notes.forEach(n => n.y -= rewindPx);
+          m4Kick();
+          m4Notes.forEach(n => n.y += rewindPx); // restore positions
           return;
         }
         
@@ -895,14 +900,7 @@
   // ==========================================
   // MODE 4 — RHYTHM GAME
   // ==========================================
-  function m4Kick(latencyMs = 0) {
-    if (!m4Running) return;
-    const cfg = M4_CONFIGS[m4Diff];
-    const rewindPx = (latencyMs / 16) * cfg.speedPx; // how far note moved during latency
-    const candidates = m4Notes.filter(n => 
-        !n.hit && !n.missed && 
-        Math.abs((n.y - rewindPx) - M4_HIT_Y) <= cfg.hitWindow
-    );
+
   
   function setM4Diff(d) {
     m4Diff = d;
