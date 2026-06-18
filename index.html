@@ -433,7 +433,7 @@
     };
 
     websocket.onmessage = (evt) => {
-
+      console.log("[WS RAW]", evt.data); 
       // --- PAIRING MESSAGES ---
       try {
         const msg = JSON.parse(evt.data);
