@@ -461,12 +461,13 @@
         }
         if (msg.type === "M4_HIT") {
           const latencyMs = Date.now() - msg.hitMs;
+          console.log("[M4] latencyMs:", latencyMs); // ADD: see actual latency
           const cfg = M4_CONFIGS[m4Diff];
           const rewindPx = (latencyMs / 16) * cfg.speedPx;
-          // Temporarily rewind note positions before calling kick
+          console.log("[M4] rewindPx:", rewindPx); // ADD: see how much we're rewinding
           m4Notes.forEach(n => n.y -= rewindPx);
           m4Kick();
-          m4Notes.forEach(n => n.y += rewindPx); // restore positions
+          m4Notes.forEach(n => n.y += rewindPx);
           return;
         }
         
