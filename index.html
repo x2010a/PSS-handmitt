@@ -1047,6 +1047,7 @@
   
     // Update LEDs based on nearest note
     const active = m4Notes.filter(n => !n.hit && !n.missed).sort((a,b) => b.y - a.y);
+    console.log("[LED] active notes:", active.map(n => Math.round(n.y)), "lit:", active.length ? Math.round((active[0].y + M4_NOTE_R) / (M4_HIT_Y + M4_NOTE_R) * 10) : 0);
     updateM4LEDs(active.length ? active[0] : null);
   
     m4AnimFrame = requestAnimationFrame(m4Loop);
