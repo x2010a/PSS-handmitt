@@ -461,25 +461,38 @@
         }
         if (msg.type === "M4_HIT") {
           const cfg = M4_CONFIGS[m4Diff];
-        const physicalHitWindow = cfg.hitWindow * 3; // wider window for physical kicks
-        const candidates = m4Notes.filter(n =>
-            !n.hit && !n.missed &&
-            Math.abs(n.y - M4_HIT_Y) <= physicalHitWindow
-        );
-        if (!candidates.length) {
-            m4Combo = 0;
-            m4ShowFeedback('Early!', '#BA7517');
-            updateM4HUD();
-            return;
-    }
-    const note = candidates.sort((a,b) => Math.abs(a.y - M4_HIT_Y) - Math.abs(b.y - M4_HIT_Y))[0];
-    // Temporarily move note to hit line for scoring
-    const savedY = note.y;
-    note.y = M4_HIT_Y;
-    m4Kick();
-    note.y = savedY;
-    return;
-        }
+          const physicalHitWindow = cfg.hitWindow * 3;
+          const candidates = m4Notes.filter(n =>
+              !n.hit && !n.missed &&
+              Math.abs(n.y - M4_HIT_Y) <= physicalHitWindow
+          );
+          if (!candidates.length) {
+              m4Combo = 0;
+              m4ShowFeedback('Early!', '#BA7517');
+              updateM4HUD();
+              return;
+          }
+          const note = candidates.sort((a,b) => Math.abs(a.y - M4_HIT_Y) - Math.abs(b.y - M4_HIT_Y))[0];
+          if (note.hit) return;
+          note.hit = true;
+          m4Hits++;
+          m4Combo++;
+          if (m4Combo > m4BestCombo) m4BestCombo = m4Combo;
+          const dist = Math.abs(note.y - M4_HIT_Y);
+          if (dist < physicalHitWindow * 0.15) {
+              m4Score += 300 * m4Combo;
+              m4ShowFeedback('Perfect!', '#00ffcc');
+          } else if (dist < physicalHitWindow * 0.40) {
+              m4Score += 150 * m4Combo;
+              m4ShowFeedback('Good', '#28a745');
+          } else {
+              m4Score += 50 * m4Combo;
+              m4ShowFeedback('OK', '#ffcc00');
+          }
+          playHitSound();
+          updateM4HUD();
+          return;
+      }
         
       } catch(e) {
         // Not JSON pairing message — fall through to game logic below
@@ -1078,19 +1091,17 @@
     m4Combo++;
     if (m4Combo > m4BestCombo) m4BestCombo = m4Combo;
     const dist = Math.abs(note.y - M4_HIT_Y);
-    if (dist < physicalHitWindow * 0.15) {
-      // Perfect — very close to hit line
-      m4Score += 300 * m4Combo;
-      m4ShowFeedback('Perfect!', '#00ffcc');
-  } else if (dist < physicalHitWindow * 0.40) {
-      // Good
-      m4Score += 150 * m4Combo;
-      m4ShowFeedback('Good', '#28a745');
-  } else {
-      // OK
-      m4Score += 50 * m4Combo;
-      m4ShowFeedback('OK', '#ffcc00');
-  }
+    if (dist < cfg.hitWindow * 0.35) {
+        m4Score += 300 * m4Combo;
+        m4ShowFeedback('Perfect!', '#00ffcc');
+    } else if (dist < cfg.hitWindow * 0.7) {
+        m4Score += 150 * m4Combo;
+        m4ShowFeedback('Good', '#28a745');
+    } else {
+        m4Score += 50 * m4Combo;
+        m4ShowFeedback('OK', '#ffcc00');
+    }
+    playHitSound();
     updateM4HUD();
   }
   
