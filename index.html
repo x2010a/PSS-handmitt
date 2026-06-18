@@ -460,15 +460,25 @@
           return;
         }
         if (msg.type === "M4_HIT") {
-          const latencyMs = Date.now() - msg.hitMs;
-          console.log("[M4] latencyMs:", latencyMs); // ADD: see actual latency
           const cfg = M4_CONFIGS[m4Diff];
-          const rewindPx = (latencyMs / 16) * cfg.speedPx;
-          console.log("[M4] rewindPx:", rewindPx); // ADD: see how much we're rewinding
-          m4Notes.forEach(n => n.y -= rewindPx);
-          m4Kick();
-          m4Notes.forEach(n => n.y += rewindPx);
-          return;
+        const physicalHitWindow = cfg.hitWindow * 3; // wider window for physical kicks
+        const candidates = m4Notes.filter(n =>
+            !n.hit && !n.missed &&
+            Math.abs(n.y - M4_HIT_Y) <= physicalHitWindow
+        );
+        if (!candidates.length) {
+            m4Combo = 0;
+            m4ShowFeedback('Early!', '#BA7517');
+            updateM4HUD();
+            return;
+    }
+    const note = candidates.sort((a,b) => Math.abs(a.y - M4_HIT_Y) - Math.abs(b.y - M4_HIT_Y))[0];
+    // Temporarily move note to hit line for scoring
+    const savedY = note.y;
+    note.y = M4_HIT_Y;
+    m4Kick();
+    note.y = savedY;
+    return;
         }
         
       } catch(e) {
