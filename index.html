@@ -1043,6 +1043,7 @@
   }
   
   function m4Kick() {
+    console.log("[M4] m4Kick called, m4Running:", m4Running, "notes:", m4Notes.length);
     if (!m4Running) return;
     const cfg = M4_CONFIGS[m4Diff];
     const candidates = m4Notes.filter(n => !n.hit && !n.missed && Math.abs(n.y - M4_HIT_Y) <= cfg.hitWindow);
