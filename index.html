@@ -272,8 +272,39 @@
   var m4Notes = [];
   var m4Score = 0, m4Combo = 0, m4BestCombo = 0, m4Hits = 0, m4Misses = 0, m4Total = 0;
   var m4LastTs = 0;
-  var m4LastLedSend = 0; 
-  //var m4PerfectFlash = false;
+  var m4LastLedSend = 0;
+
+  // --- Multi-note LED identity colors ---
+  // Each falling note gets a random color code assigned at spawn time.
+  // Codes map directly to the C3 firmware's switch statement:
+  //   '1'=red '2'=blue '3'=orange '4'=purple '5'=cyan '6'=pink
+  // 'G' (green/kick-now) and 'R' (miss flash) are reserved and never
+  // assigned as a note's base identity color.
+  var M4_COLOR_CODES = ['1', '2', '3', '4', '5', '6'];
+  var m4LastNoteColorCode = null;
+
+  function getRandomNoteColorCode() {
+    let code;
+    do {
+      code = M4_COLOR_CODES[Math.floor(Math.random() * M4_COLOR_CODES.length)];
+    } while (code === m4LastNoteColorCode);
+    m4LastNoteColorCode = code;
+    return code;
+  }
+
+  // Maps a color code to a CSS color for the dashboard's own LED strip
+  // display and canvas notes — kept in sync with the C3 firmware's RGB values.
+  var M4_COLOR_CSS = {
+    '1': 'rgb(226,75,74)',   // red
+    '2': 'rgb(55,138,221)',  // blue
+    '3': 'rgb(216,90,48)',   // orange
+    '4': 'rgb(127,119,221)', // purple
+    '5': 'rgb(29,158,117)',  // cyan/teal
+    '6': 'rgb(212,83,126)',  // pink
+    'G': 'rgb(99,153,34)',   // green — kick now
+    'R': 'rgb(255,0,0)',     // red flash — miss
+    '0': '#333'              // off
+  };
 
   var M4_CONFIGS = {
     easy:   { speedPx: 1.8, minGap: 1600, maxGap: 3200, hitWindow: 75 },
@@ -931,14 +962,13 @@
   // MODE 4 — RHYTHM GAME
   // ==========================================
 
-  
   function setM4Diff(d) {
     m4Diff = d;
     ['easy','medium','hard'].forEach(x => {
       document.getElementById('m4-diff-' + x).style.background = x === d ? '#28a745' : '#444';
     });
   }
-  
+
   function buildM4LEDs() {
     const strip = document.getElementById('m4-leds');
     strip.innerHTML = '';
@@ -949,39 +979,64 @@
       strip.appendChild(led);
     }
   }
-  
-  function updateM4LEDs(nearestNote) {
-    if (!nearestNote) {
-        for (let i = 0; i < 10; i++) document.getElementById('m4-led-' + i).style.background = '#333';
-        // Throttle send
-        const now = Date.now();
-        if (websocket && websocket.readyState === WebSocket.OPEN && now - m4LastLedSend >= 80) {
-            websocket.send('M4_LED|0');
-            m4LastLedSend = now;
+
+  // ==========================================
+  // MULTI-NOTE LED SNAPSHOT SYSTEM
+  // ==========================================
+  // Replaces the old single-note countdown bar. The dashboard already
+  // knows every note's exact y position every frame (it owns the canvas
+  // animation loop), so it builds a full 10-slot color snapshot here and
+  // pushes the WHOLE snapshot to the hub each tick — not deltas. This
+  // makes every update self-correcting: if one packet drops over
+  // ESP-NOW, the very next snapshot fixes the strip completely instead
+  // of leaving stale colors stuck on.
+  //
+  // Slot 0 = top of canvas (note just spawned), slot 9 = hit line.
+  // Sent as: LED_STATE|<10 chars>  e.g. "LED_STATE|0102000G00"
+  //
+  // Throttled to once every 80ms (same throttle pattern used
+  // successfully elsewhere) to avoid flooding the WebSocket/ESP-NOW
+  // link — sending on every animation frame caused real connection
+  // drops in earlier testing.
+  function updateM4LedSnapshot() {
+    const slots = new Array(10).fill('0');
+    const travel = M4_HIT_Y + M4_NOTE_R;
+
+    m4Notes.forEach(n => {
+      if (n.hit) return; // resolved hits clear immediately, no lingering slot
+
+      if (n.missed) {
+        // Brief red flash at the note's last position, then goes dark
+        // once the flash window expires (set when marked missed below).
+        if (n.missFlashUntil && Date.now() < n.missFlashUntil) {
+          const pct = Math.max(0, Math.min(1, (n.y + M4_NOTE_R) / travel));
+          let slot = Math.max(0, Math.min(9, Math.round(pct * 9)));
+          slots[slot] = 'R';
         }
         return;
-    }
-    const travel = M4_HIT_Y + M4_NOTE_R;
-    const pct = Math.max(0, Math.min(1, (nearestNote.y + M4_NOTE_R) / travel));
-    const lit = 10 - Math.round(pct * 10);
+      }
+
+      // Active, still falling note — show its identity color at its
+      // current slot, or green if it has reached the kick zone.
+      const pct = Math.max(0, Math.min(1, (n.y + M4_NOTE_R) / travel));
+      let slot = Math.max(0, Math.min(9, Math.round(pct * 9)));
+      slots[slot] = (slot === 9) ? 'G' : n.colorCode;
+    });
+
+    // --- Update the dashboard's own on-screen LED strip to match ---
     for (let i = 0; i < 10; i++) {
-        const el = document.getElementById('m4-led-' + i);
-        if (i < lit) {
-            if (lit <= 3)      el.style.background = '#E24B4A';
-            else if (lit >= 6) el.style.background = '#EF9F27';
-            else               el.style.background = '#639922';
-        } else {
-            el.style.background = '#333';
-        }
+      const el = document.getElementById('m4-led-' + i);
+      if (el) el.style.background = M4_COLOR_CSS[slots[i]] || '#333';
     }
-    // Throttle send to 80ms
+
+    // --- Throttled push to hub (which relays verbatim to the C3) ---
     const now = Date.now();
     if (websocket && websocket.readyState === WebSocket.OPEN && now - m4LastLedSend >= 80) {
-        websocket.send('M4_LED|' + lit);
-        m4LastLedSend = now;
+      websocket.send('LED_STATE|' + slots.join(''));
+      m4LastLedSend = now;
     }
   }
-  
+
   function startMode4() {
     m4Canvas = document.getElementById('m4-highway');
     m4Ctx = m4Canvas.getContext('2d');
@@ -1006,15 +1061,15 @@
   function m4SpawnNote() {
     if (!m4Running) return;
     const cfg = M4_CONFIGS[m4Diff];
-    const travelMs = Math.round((M4_H + M4_NOTE_R) / cfg.speedPx * 16);
-    m4Notes.push({ y: -M4_NOTE_R, hit: false, missed: false, spawnTime: Date.now() });
+    m4Notes.push({
+      y: -M4_NOTE_R,
+      hit: false,
+      missed: false,
+      spawnTime: Date.now(),
+      colorCode: getRandomNoteColorCode() // unique identity color, no consecutive repeats
+    });
     m4Total++;
-  
-    // Tell hub how long until this note hits the line
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send('M4_NOTE|' + travelMs);
-    }
-  
+
     // Schedule next note at random interval
     const gap = cfg.minGap + Math.random() * (cfg.maxGap - cfg.minGap);
     m4SpawnTimer = setTimeout(m4SpawnNote, gap);
@@ -1032,6 +1087,7 @@
           const physWindow = cfg.hitWindow * 3;
           if (Math.abs(n.y - M4_HIT_Y) > physWindow) {
               n.missed = true;
+              n.missFlashUntil = Date.now() + 200; // brief red flash before going dark
               m4Combo = 0;
               m4Misses++;
               m4ShowFeedback('Miss', '#E24B4A');
@@ -1044,11 +1100,9 @@
     m4Ctx.clearRect(0, 0, M4_W, M4_H);
     m4DrawLane(cfg);
     m4Notes.forEach(n => { if (!n.hit) m4DrawNote(n); });
-  
-    // Update LEDs based on nearest note
-    const active = m4Notes.filter(n => !n.hit && !n.missed).sort((a,b) => b.y - a.y);
-    console.log("[LED] active notes:", active.map(n => Math.round(n.y)), "lit:", active.length ? Math.round((active[0].y + M4_NOTE_R) / (M4_HIT_Y + M4_NOTE_R) * 10) : 0);
-    updateM4LEDs(active.length ? active[0] : null);
+
+    // Push the full multi-note LED snapshot (throttled internally)
+    updateM4LedSnapshot();
   
     m4AnimFrame = requestAnimationFrame(m4Loop);
   }
@@ -1073,16 +1127,12 @@
   }
   
   function m4DrawNote(n) {
-    const dist = M4_HIT_Y - n.y;
-    const travel = M4_H + M4_NOTE_R;
-    const pct = Math.max(0, Math.min(1, 1 - dist / travel));
-    let color;
-    if (pct < 0.45)      color = '#E24B4A'; // red — far
-    else if (pct < 0.75) color = '#EF9F27'; // amber — mid
-    else                 color = '#639922'; // green — close
+    // Note color on the canvas now matches its assigned identity color
+    // (the same one shown on the physical LED strip), instead of the
+    // old red/amber/green proximity gradient.
     m4Ctx.beginPath();
     m4Ctx.arc(M4_LANE_X, n.y, M4_NOTE_R, 0, Math.PI * 2);
-    m4Ctx.fillStyle = color;
+    m4Ctx.fillStyle = M4_COLOR_CSS[n.colorCode] || '#888';
     m4Ctx.fill();
     m4Ctx.strokeStyle = 'rgba(255,255,255,0.15)';
     m4Ctx.lineWidth = 1.5;
