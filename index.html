@@ -1121,7 +1121,7 @@
   
     m4Ctx.clearRect(0, 0, M4_W, M4_H);
     m4DrawLane(cfg);
-    m4Notes.forEach(n => { if (!n.hit) m4DrawNote(n); });
+    m4Notes.forEach(n => { if (!n.hit && !n.missed) m4DrawNote(n); });
 
     // Push the full multi-note LED snapshot (throttled internally)
     updateM4LedSnapshot();
