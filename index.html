@@ -525,6 +525,7 @@
           const note = candidates.sort((a,b) => Math.abs(a.y - M4_HIT_Y) - Math.abs(b.y - M4_HIT_Y))[0];
           if (note.hit) return;
           note.hit = true;
+          updateM4LedSnapshot();
           m4Hits++;
           m4Combo++;
           if (m4Combo > m4BestCombo) m4BestCombo = m4Combo;
@@ -1177,6 +1178,7 @@
     }
     const note = candidates.sort((a,b) => Math.abs(a.y - M4_HIT_Y) - Math.abs(b.y - M4_HIT_Y))[0];
     note.hit = true;
+    updateM4LedSnapshot();
     m4Hits++;
     m4Combo++;
     if (m4Combo > m4BestCombo) m4BestCombo = m4Combo;
