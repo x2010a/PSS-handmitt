@@ -1101,16 +1101,20 @@
   
     m4Notes.forEach(n => {
       if (!n.hit && !n.missed) n.y += cfg.speedPx * (dt / 16);
-      if (!n.hit && !n.missed && n.y > M4_HIT_Y + cfg.hitWindow + 30) {
-          const missRange = cfg.hitWindow * M4_RATIOS.miss;
-          if (Math.abs(n.y - M4_HIT_Y) > missRange) {
-              n.missed = true;
-              n.missFlashUntil = Date.now() + 200; // brief red flash before going dark
-              m4Combo = 0;
-              m4Misses++;
-              m4ShowFeedback('Miss', '#E24B4A');
-              updateM4HUD();
-          }
+      // Visual miss trigger: fires once the note has traveled past the
+      // hit line by 1.5x its own radius — roughly the point where 3/4
+      // of the note circle has scrolled off past the kick zone. This is
+      // intentionally independent of M4_RATIOS.miss, which governs how
+      // forgiving PHYSICAL kicks are, not how long the note visually
+      // lingers green at the hit line.
+      const visualMissDist = M4_NOTE_R * 1.5;
+      if (!n.hit && !n.missed && (n.y - M4_HIT_Y) > visualMissDist) {
+          n.missed = true;
+          n.missFlashUntil = Date.now() + 200; // brief red flash before going dark
+          m4Combo = 0;
+          m4Misses++;
+          m4ShowFeedback('Miss', '#E24B4A');
+          updateM4HUD();
       }
     });
     m4Notes = m4Notes.filter(n => n.y < M4_H + 250);
