@@ -1233,9 +1233,23 @@
       e.preventDefault();
       m4Kick();
     }
-  });
+  }
+                           
+  );
 
+window.addEventListener('beforeunload', () => {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.send("STOP_GAME");
+        websocket.close();
+    }
+});
 
+window.onload = () => {
+    initWS();
+    let savedSens = localStorage.getItem('globalSensitivity') || 350;
+    document.getElementById('sens-slider').value = savedSens;
+    document.getElementById('sens-val').innerText = savedSens;
+};
   
   window.onload = () => {
     initWS();
