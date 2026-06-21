@@ -165,7 +165,16 @@
       </div>
       <button onclick="stopMode4()" style="width:auto; padding:8px 16px; font-size:0.85rem; background:#c0392b;">END</button>
     </div>
-  
+
+    <!-- TEMP: audio streaming test — remove once confirmed working -->
+    <div class="stat-card" style="border-color:#00ffcc;">
+      <p style="margin:0 0 8px 0; font-size:0.85rem; color:#00ffcc; font-weight:bold;">AUDIO STREAM TEST</p>
+      <audio id="test-audio-player" controls style="width:100%; display:block;"></audio>
+      <button onclick="testAudioStream()" style="margin-top:10px;">PLAY TEST TRACK</button>
+      <p id="test-audio-status" style="font-size:0.8rem; color:#666; margin-top:6px;"></p>
+    </div>
+    <!-- END TEMP -->
+    
     <!-- LED STRIP -->
     <div id="m4-leds" style="display:flex; gap:5px; justify-content:center; padding:8px 0; max-width:400px; margin:0 auto;"></div>
   
@@ -401,6 +410,23 @@
   // ==========================================
   // AUDIO
   // ==========================================
+  function testAudioStream() {
+    const player = document.getElementById('test-audio-player');
+    const status = document.getElementById('test-audio-status');
+    player.src = 'audio/Hell march cropped.mp3';
+    status.textContent = 'Loading...';
+    status.style.color = '#ffcc00';
+
+    player.play().then(() => {
+        status.textContent = 'Streaming OK';
+        status.style.color = '#28a745';
+    }).catch(err => {
+        status.textContent = 'Failed: ' + err.message;
+        status.style.color = '#ff4444';
+        console.error('[AUDIO TEST]', err);
+    });
+  }
+  
   function unlockAudio() {
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
