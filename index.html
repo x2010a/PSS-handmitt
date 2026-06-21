@@ -603,7 +603,7 @@
         if (currentModeName === "Reaction") {
           if (device === "TIMEOUT") {
               document.getElementById('dispImpact').innerText = "TIMEOUT";
-              document.getElementById('statusMsg').innerText = "Too slow!";
+              document.getElementById('statusMsg').innerText = "Miss!";
           } else {
               document.getElementById('dispImpact').innerText = rxn > 0 ? rxn + "ms" : "HIT!";
               document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
