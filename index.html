@@ -160,6 +160,7 @@
   </div>
 
   <div id="scr-game-m4" class="screen">
+    <audio id="m4-audio-player" preload="auto"></audio>
     <div style="display:flex; justify-content:space-between; align-items:center; padding:0 10px; max-width:400px; margin:0 auto;">
       <div style="text-align:center;">
         <div id="m4-score" style="font-size:1.8rem; font-weight:bold; color:#00ffcc;">0</div>
@@ -283,6 +284,17 @@
   var m4Score = 0, m4Combo = 0, m4BestCombo = 0, m4Hits = 0, m4Misses = 0, m4Total = 0;
   var m4LastTs = 0;
   var m4LastLedSend = 0;
+
+  var M4_TRACKS = {
+    track1: {
+      audioSrc: 'audio/Hell march cropped.mp3',
+      beatmap: [2565,4925,7358,9743,12176,14435,15212,15855,16493,18223,19217,20026,21579,24091,26416,28882,30166,31364,32432,33627,34485,35034,35730,37427,38383,39544,41154,43365,45739,48190,49411,50493,51714,52917,54138,55355,56519,57686,58553,60400,60982,62570,63193,65080,65658,66776,68004,69733,70386,72355,74602,75160,76385,77608,80012,82447,84802,86121,87187,89645,92005,92708,93340,94972,95836]
+    }
+  };
+
+var m4Audio = null;
+var m4BeatIndex = 0;
+var m4ActiveBeatmap = [];
 
   var M4_COLOR_CODES = ['1', '2', '3', '4', '5', '6'];
   var m4LastNoteColorCode = null;
@@ -1049,68 +1061,86 @@
   }
 
   function startMode4() {
-    m4Canvas = document.getElementById('m4-highway');
-    m4Ctx = m4Canvas.getContext('2d');
-    m4Notes = []; m4Score = 0; m4Combo = 0; m4BestCombo = 0;
-    m4Hits = 0; m4Misses = 0; m4Total = 0;
-    m4Running = true;
-    buildM4LEDs();
-    updateM4HUD();
-    showScreen('scr-game-m4');
+      m4Canvas = document.getElementById('m4-highway');
+      m4Ctx = m4Canvas.getContext('2d');
+      m4Notes = []; m4Score = 0; m4Combo = 0; m4BestCombo = 0;
+      m4Hits = 0; m4Misses = 0; m4Total = 0;
+      m4Running = true;
+      buildM4LEDs();
+      updateM4HUD();
+      showScreen('scr-game-m4');
   
-    const cfg = M4_CONFIGS[m4Diff];
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send('M4_START|' + m4Diff);
-    }
+      const selectedTrack = document.getElementById('m4-music').value;
+      const trackData = M4_TRACKS[selectedTrack] || M4_TRACKS.track1;
   
-    setTimeout(m4SpawnNote, 1000 + Math.random() * 500);
-    m4LastTs = 0;
-    requestAnimationFrame(m4Loop);
-  }
+      m4Audio = document.getElementById('m4-audio-player');
+      m4Audio.src = trackData.audioSrc;
+      m4Audio.currentTime = 0;
   
-  function m4SpawnNote() {
-    if (!m4Running) return;
-    const cfg = M4_CONFIGS[m4Diff];
-    m4Notes.push({
-      y: -M4_NOTE_R,
-      hit: false,
-      missed: false,
-      spawnTime: Date.now(),
-      colorCode: getRandomNoteColorCode()
-    });
-    m4Total++;
-
-    const gap = cfg.minGap + Math.random() * (cfg.maxGap - cfg.minGap);
-    m4SpawnTimer = setTimeout(m4SpawnNote, gap);
+      if (m4Diff === 'easy') {
+          m4ActiveBeatmap = trackData.beatmap.filter((_, i) => i % 2 === 0);
+      } else {
+          m4ActiveBeatmap = trackData.beatmap.slice();
+      }
+      m4BeatIndex = 0;
+  
+      if (websocket && websocket.readyState === WebSocket.OPEN) {
+          websocket.send('M4_START|' + m4Diff);
+      }
+  
+      m4Audio.play();
+      m4LastTs = 0;
+      requestAnimationFrame(m4Loop);
   }
   
   function m4Loop(ts) {
-    if (!m4Running) return;
-    const cfg = M4_CONFIGS[m4Diff];
-    const dt = m4LastTs ? Math.min(ts - m4LastTs, 50) : 16;
-    m4LastTs = ts;
+      if (!m4Running) return;
+      const cfg = M4_CONFIGS[m4Diff];
+      const dt = m4LastTs ? Math.min(ts - m4LastTs, 50) : 16;
+      m4LastTs = ts;
   
-    m4Notes.forEach(n => {
-      if (!n.hit && !n.missed) n.y += cfg.speedPx * (dt / 16);
-      const visualMissDist = M4_NOTE_R * 1.5;
-      if (!n.hit && !n.missed && (n.y - M4_HIT_Y) > visualMissDist) {
-          n.missed = true;
-          n.missFlashUntil = Date.now() + 200;
-          m4Combo = 0;
-          m4Misses++;
-          m4ShowFeedback('Miss', '#E24B4A');
-          updateM4HUD();
+      const audioMs = m4Audio.currentTime * 1000;
+      const travelMs = (M4_H + M4_NOTE_R) / cfg.speedPx * 16;
+  
+      while (m4BeatIndex < m4ActiveBeatmap.length &&
+             m4ActiveBeatmap[m4BeatIndex] - travelMs <= audioMs) {
+          m4Notes.push({
+              y: -M4_NOTE_R,
+              hit: false,
+              missed: false,
+              spawnTime: Date.now(),
+              colorCode: getRandomNoteColorCode()
+          });
+          m4Total++;
+          m4BeatIndex++;
       }
-    });
-    m4Notes = m4Notes.filter(n => n.y < M4_H + 250);
   
-    m4Ctx.clearRect(0, 0, M4_W, M4_H);
-    m4DrawLane(cfg);
-    m4Notes.forEach(n => { if (!n.hit && !n.missed) m4DrawNote(n); });
-
-    updateM4LedSnapshot();
+      m4Notes.forEach(n => {
+        if (!n.hit && !n.missed) n.y += cfg.speedPx * (dt / 16);
+        const visualMissDist = M4_NOTE_R * 1.5;
+        if (!n.hit && !n.missed && (n.y - M4_HIT_Y) > visualMissDist) {
+            n.missed = true;
+            n.missFlashUntil = Date.now() + 200;
+            m4Combo = 0;
+            m4Misses++;
+            m4ShowFeedback('Miss', '#E24B4A');
+            updateM4HUD();
+        }
+      });
+      m4Notes = m4Notes.filter(n => n.y < M4_H + 250);
   
-    m4AnimFrame = requestAnimationFrame(m4Loop);
+      m4Ctx.clearRect(0, 0, M4_W, M4_H);
+      m4DrawLane(cfg);
+      m4Notes.forEach(n => { if (!n.hit && !n.missed) m4DrawNote(n); });
+  
+      updateM4LedSnapshot();
+  
+      if (m4BeatIndex >= m4ActiveBeatmap.length && m4Notes.length === 0) {
+          stopMode4();
+          return;
+      }
+  
+      m4AnimFrame = requestAnimationFrame(m4Loop);
   }
   
   function m4DrawLane(cfg) {
@@ -1198,9 +1228,9 @@
   function stopMode4() {
     m4Running = false;
     cancelAnimationFrame(m4AnimFrame);
-    clearTimeout(m4SpawnTimer);
+    if (m4Audio) { m4Audio.pause(); m4Audio.currentTime = 0; }
     if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send('M4_STOP');
+        websocket.send('M4_STOP');
     }
     showScreen('scr-menu');
   }
