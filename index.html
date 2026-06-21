@@ -31,15 +31,6 @@
     <h1 style="margin-top: 50px; color: #ffcc00;">Smart Paddle</h1>
     <p id="connStatus" style="color: #ff4444;">Searching for Hardware...</p>
 
-    <!-- TEMP: audio streaming test - remove once confirmed working -->
-    <div class="stat-card" style="border-color:#00ffcc;">
-      <p style="margin:0 0 8px 0; font-size:0.85rem; color:#00ffcc; font-weight:bold;">AUDIO STREAM TEST</p>
-      <audio id="test-audio-player" controls style="width:100%; display:block;"></audio>
-      <button onclick="testAudioStream()" style="margin-top:10px;">PLAY TEST TRACK</button>
-      <p id="test-audio-status" style="font-size:0.8rem; color:#666; margin-top:6px;"></p>
-    </div>
-    <!-- END TEMP -->
-
     <button id="audio-btn" class="audio-locked" onclick="unlockAudio()">1. ENABLE SOUND</button>
 
     <div id="volume-container" class="stat-card" style="display: none; border-color: #f1c40f;">
@@ -338,29 +329,6 @@ var m4ActiveBeatmap = [];
   var M4_LANE_X = 150;
   var M4_HIT_Y = 340;
   var M4_NOTE_R = 20;
-
-  // ==========================================
-  // TEMP: AUDIO STREAMING TEST
-  // ==========================================
-  function testAudioStream() {
-    const player = document.getElementById('test-audio-player');
-    const status = document.getElementById('test-audio-status');
-    player.src = 'audio/Hell march cropped.mp3';
-    status.textContent = 'Loading...';
-    status.style.color = '#ffcc00';
-
-    player.play().then(() => {
-      status.textContent = 'Streaming OK';
-      status.style.color = '#28a745';
-    }).catch(err => {
-      status.textContent = 'Failed: ' + err.message;
-      status.style.color = '#ff4444';
-      console.error('[AUDIO TEST]', err);
-    });
-  }
-  // ==========================================
-  // END TEMP
-  // ==========================================
   
   function renderPairingPanel() {
     const reqDiv = document.getElementById('pair-requests');
