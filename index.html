@@ -30,6 +30,16 @@
   <div id="scr-menu" class="screen active">
     <h1 style="margin-top: 50px; color: #ffcc00;">Smart Paddle</h1>
     <p id="connStatus" style="color: #ff4444;">Searching for Hardware...</p>
+
+    <!-- TEMP: audio streaming test - remove once confirmed working -->
+    <div class="stat-card" style="border-color:#00ffcc;">
+      <p style="margin:0 0 8px 0; font-size:0.85rem; color:#00ffcc; font-weight:bold;">AUDIO STREAM TEST</p>
+      <audio id="test-audio-player" controls style="width:100%; display:block;"></audio>
+      <button onclick="testAudioStream()" style="margin-top:10px;">PLAY TEST TRACK</button>
+      <p id="test-audio-status" style="font-size:0.8rem; color:#666; margin-top:6px;"></p>
+    </div>
+    <!-- END TEMP -->
+
     <button id="audio-btn" class="audio-locked" onclick="unlockAudio()">1. ENABLE SOUND</button>
 
     <div id="volume-container" class="stat-card" style="display: none; border-color: #f1c40f;">
@@ -165,16 +175,7 @@
       </div>
       <button onclick="stopMode4()" style="width:auto; padding:8px 16px; font-size:0.85rem; background:#c0392b;">END</button>
     </div>
-
-    <!-- TEMP: audio streaming test — remove once confirmed working -->
-    <div class="stat-card" style="border-color:#00ffcc;">
-      <p style="margin:0 0 8px 0; font-size:0.85rem; color:#00ffcc; font-weight:bold;">AUDIO STREAM TEST</p>
-      <audio id="test-audio-player" controls style="width:100%; display:block;"></audio>
-      <button onclick="testAudioStream()" style="margin-top:10px;">PLAY TEST TRACK</button>
-      <p id="test-audio-status" style="font-size:0.8rem; color:#666; margin-top:6px;"></p>
-    </div>
-    <!-- END TEMP -->
-    
+  
     <!-- LED STRIP -->
     <div id="m4-leds" style="display:flex; gap:5px; justify-content:center; padding:8px 0; max-width:400px; margin:0 auto;"></div>
   
@@ -268,11 +269,11 @@
   // ==========================================
   // PAIRING STATE
   // ==========================================
-  var pendingPairRequests = {}; // mac -> deviceID
-  var pairedSensors = {};       // mac -> deviceID
+  var pendingPairRequests = {};
+  var pairedSensors = {};
 
   // ==========================================
-  // MODE 4 — RHYTHM GAME
+  // MODE 4 - RHYTHM GAME
   // ==========================================
   var m4Diff = 'easy';
   var m4Running = false;
@@ -283,12 +284,6 @@
   var m4LastTs = 0;
   var m4LastLedSend = 0;
 
-  // --- Multi-note LED identity colors ---
-  // Each falling note gets a random color code assigned at spawn time.
-  // Codes map directly to the C3 firmware's switch statement:
-  //   '1'=red '2'=blue '3'=orange '4'=purple '5'=cyan '6'=pink
-  // 'G' (green/kick-now) and 'R' (miss flash) are reserved and never
-  // assigned as a note's base identity color.
   var M4_COLOR_CODES = ['1', '2', '3', '4', '5', '6'];
   var m4LastNoteColorCode = null;
 
@@ -301,18 +296,16 @@
     return code;
   }
 
-  // Maps a color code to a CSS color for the dashboard's own LED strip
-  // display and canvas notes — kept in sync with the C3 firmware's RGB values.
   var M4_COLOR_CSS = {
-    '1': 'rgb(226,75,74)',   // red
-    '2': 'rgb(55,138,221)',  // blue
-    '3': 'rgb(216,90,48)',   // orange
-    '4': 'rgb(127,119,221)', // purple
-    '5': 'rgb(29,158,117)',  // cyan/teal
-    '6': 'rgb(212,83,126)',  // pink
-    'G': 'rgb(99,153,34)',   // green — kick now
-    'R': 'rgb(255,0,0)',     // red flash — miss
-    '0': '#333'              // off
+    '1': 'rgb(226,75,74)',
+    '2': 'rgb(55,138,221)',
+    '3': 'rgb(216,90,48)',
+    '4': 'rgb(127,119,221)',
+    '5': 'rgb(29,158,117)',
+    '6': 'rgb(212,83,126)',
+    'G': 'rgb(99,153,34)',
+    'R': 'rgb(255,0,0)',
+    '0': '#333'
   };
 
   var M4_CONFIGS = {
@@ -321,15 +314,6 @@
     hard:   { speedPx: 4.0, minGap:  600, maxGap: 1400, hitWindow: 34 }
   };
 
-  // --- Independent scoring ratios ---
-  // Each tier's boundary is its own multiplier off cfg.hitWindow, so
-  // tuning one (e.g. miss) never shifts the others. All distances are
-  // "how far the note is from the hit line when the kick registers,"
-  // expressed as a fraction of that difficulty's hitWindow.
-  //   perfect — inside this distance = Perfect
-  //   good    — inside this distance = Good
-  //   ok      — inside this distance = OK
-  //   miss    — beyond this distance = Miss / Early (outer edge of forgiveness)
   var M4_RATIOS = {
     perfect: 0.20,
     good:    0.45,
@@ -342,6 +326,29 @@
   var M4_LANE_X = 150;
   var M4_HIT_Y = 340;
   var M4_NOTE_R = 20;
+
+  // ==========================================
+  // TEMP: AUDIO STREAMING TEST
+  // ==========================================
+  function testAudioStream() {
+    const player = document.getElementById('test-audio-player');
+    const status = document.getElementById('test-audio-status');
+    player.src = 'audio/Hell march cropped.mp3';
+    status.textContent = 'Loading...';
+    status.style.color = '#ffcc00';
+
+    player.play().then(() => {
+      status.textContent = 'Streaming OK';
+      status.style.color = '#28a745';
+    }).catch(err => {
+      status.textContent = 'Failed: ' + err.message;
+      status.style.color = '#ff4444';
+      console.error('[AUDIO TEST]', err);
+    });
+  }
+  // ==========================================
+  // END TEMP
+  // ==========================================
   
   function renderPairingPanel() {
     const reqDiv = document.getElementById('pair-requests');
@@ -353,7 +360,6 @@
 
     let hasContent = false;
 
-    // Pending requests
     Object.entries(pendingPairRequests).forEach(([mac, deviceID]) => {
       hasContent = true;
       reqDiv.innerHTML += `
@@ -368,7 +374,6 @@
         </div>`;
     });
 
-    // Confirmed sensors
     Object.entries(pairedSensors).forEach(([mac, deviceID]) => {
       hasContent = true;
       confDiv.innerHTML += `
@@ -410,23 +415,6 @@
   // ==========================================
   // AUDIO
   // ==========================================
-  function testAudioStream() {
-    const player = document.getElementById('test-audio-player');
-    const status = document.getElementById('test-audio-status');
-    player.src = 'audio/Hell march cropped.mp3';
-    status.textContent = 'Loading...';
-    status.style.color = '#ffcc00';
-
-    player.play().then(() => {
-        status.textContent = 'Streaming OK';
-        status.style.color = '#28a745';
-    }).catch(err => {
-        status.textContent = 'Failed: ' + err.message;
-        status.style.color = '#ff4444';
-        console.error('[AUDIO TEST]', err);
-    });
-  }
-  
   function unlockAudio() {
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -508,7 +496,6 @@
 
     websocket.onmessage = (evt) => {
       console.log("[WS RAW]", evt.data); 
-      // --- PAIRING MESSAGES ---
       try {
         const msg = JSON.parse(evt.data);
         if (msg.type === "PAIR_REQUEST") {
@@ -536,7 +523,7 @@
         if (msg.type === "M4_HIT") {
           const cfg = M4_CONFIGS[m4Diff];
           const base = cfg.hitWindow;
-          const missRange = base * M4_RATIOS.miss; // outer edge — widest range a physical kick can still register in
+          const missRange = base * M4_RATIOS.miss;
 
           const candidates = m4Notes.filter(n =>
               !n.hit && !n.missed &&
@@ -577,10 +564,8 @@
         }
         
       } catch(e) {
-        // Not JSON pairing message — fall through to game logic below
       }
 
-      // --- GAME MESSAGES ---
       if (evt.data === "OVER") {
         if (!isEndingProcessed) {
           isEndingProcessed = true;
@@ -679,7 +664,7 @@
   }
 
   // ==========================================
-  // GAME MODES (ALL ORIGINAL — UNTOUCHED)
+  // GAME MODES (ALL ORIGINAL - UNTOUCHED)
   // ==========================================
   function startMode1() {
     isDNF = false; isEndingProcessed = false;
@@ -1009,7 +994,7 @@
   });
 
   // ==========================================
-  // MODE 4 — RHYTHM GAME
+  // MODE 4 - RHYTHM GAME
   // ==========================================
 
   function setM4Diff(d) {
@@ -1030,34 +1015,14 @@
     }
   }
 
-  // ==========================================
-  // MULTI-NOTE LED SNAPSHOT SYSTEM
-  // ==========================================
-  // Replaces the old single-note countdown bar. The dashboard already
-  // knows every note's exact y position every frame (it owns the canvas
-  // animation loop), so it builds a full 10-slot color snapshot here and
-  // pushes the WHOLE snapshot to the hub each tick — not deltas. This
-  // makes every update self-correcting: if one packet drops over
-  // ESP-NOW, the very next snapshot fixes the strip completely instead
-  // of leaving stale colors stuck on.
-  //
-  // Slot 0 = top of canvas (note just spawned), slot 9 = hit line.
-  // Sent as: LED_STATE|<10 chars>  e.g. "LED_STATE|0102000G00"
-  //
-  // Throttled to once every 80ms (same throttle pattern used
-  // successfully elsewhere) to avoid flooding the WebSocket/ESP-NOW
-  // link — sending on every animation frame caused real connection
-  // drops in earlier testing.
   function updateM4LedSnapshot() {
     const slots = new Array(10).fill('0');
     const travel = M4_HIT_Y + M4_NOTE_R;
 
     m4Notes.forEach(n => {
-      if (n.hit) return; // resolved hits clear immediately, no lingering slot
+      if (n.hit) return;
 
       if (n.missed) {
-        // Brief red flash at the note's last position, then goes dark
-        // once the flash window expires (set when marked missed below).
         if (n.missFlashUntil && Date.now() < n.missFlashUntil) {
           const pct = Math.max(0, Math.min(1, (n.y + M4_NOTE_R) / travel));
           let slot = Math.max(0, Math.min(9, Math.round(pct * 9)));
@@ -1066,20 +1031,16 @@
         return;
       }
 
-      // Active, still falling note — show its identity color at its
-      // current slot, or green if it has reached the kick zone.
       const pct = Math.max(0, Math.min(1, (n.y + M4_NOTE_R) / travel));
       let slot = Math.max(0, Math.min(9, Math.round(pct * 9)));
       slots[slot] = (slot === 9) ? 'G' : n.colorCode;
     });
 
-    // --- Update the dashboard's own on-screen LED strip to match ---
     for (let i = 0; i < 10; i++) {
       const el = document.getElementById('m4-led-' + i);
       if (el) el.style.background = M4_COLOR_CSS[slots[i]] || '#333';
     }
 
-    // --- Throttled push to hub (which relays verbatim to the C3) ---
     const now = Date.now();
     if (websocket && websocket.readyState === WebSocket.OPEN && now - m4LastLedSend >= 80) {
       websocket.send('LED_STATE|' + slots.join(''));
@@ -1102,7 +1063,6 @@
       websocket.send('M4_START|' + m4Diff);
     }
   
-    // Schedule first note
     setTimeout(m4SpawnNote, 1000 + Math.random() * 500);
     m4LastTs = 0;
     requestAnimationFrame(m4Loop);
@@ -1116,11 +1076,10 @@
       hit: false,
       missed: false,
       spawnTime: Date.now(),
-      colorCode: getRandomNoteColorCode() // unique identity color, no consecutive repeats
+      colorCode: getRandomNoteColorCode()
     });
     m4Total++;
 
-    // Schedule next note at random interval
     const gap = cfg.minGap + Math.random() * (cfg.maxGap - cfg.minGap);
     m4SpawnTimer = setTimeout(m4SpawnNote, gap);
   }
@@ -1133,16 +1092,10 @@
   
     m4Notes.forEach(n => {
       if (!n.hit && !n.missed) n.y += cfg.speedPx * (dt / 16);
-      // Visual miss trigger: fires once the note has traveled past the
-      // hit line by 1.5x its own radius — roughly the point where 3/4
-      // of the note circle has scrolled off past the kick zone. This is
-      // intentionally independent of M4_RATIOS.miss, which governs how
-      // forgiving PHYSICAL kicks are, not how long the note visually
-      // lingers green at the hit line.
       const visualMissDist = M4_NOTE_R * 1.5;
       if (!n.hit && !n.missed && (n.y - M4_HIT_Y) > visualMissDist) {
           n.missed = true;
-          n.missFlashUntil = Date.now() + 200; // brief red flash before going dark
+          n.missFlashUntil = Date.now() + 200;
           m4Combo = 0;
           m4Misses++;
           m4ShowFeedback('Miss', '#E24B4A');
@@ -1155,7 +1108,6 @@
     m4DrawLane(cfg);
     m4Notes.forEach(n => { if (!n.hit && !n.missed) m4DrawNote(n); });
 
-    // Push the full multi-note LED snapshot (throttled internally)
     updateM4LedSnapshot();
   
     m4AnimFrame = requestAnimationFrame(m4Loop);
@@ -1168,22 +1120,17 @@
     m4Ctx.beginPath();
     m4Ctx.roundRect(M4_LANE_X - 40, 0, 80, M4_H, 6);
     m4Ctx.fill();
-    // Hit line
     m4Ctx.strokeStyle = 'rgba(226,75,74,0.5)';
     m4Ctx.lineWidth = 2;
     m4Ctx.beginPath();
     m4Ctx.moveTo(M4_LANE_X - 40, M4_HIT_Y);
     m4Ctx.lineTo(M4_LANE_X + 40, M4_HIT_Y);
     m4Ctx.stroke();
-    // Hit window zone
     m4Ctx.fillStyle = 'rgba(226,75,74,0.06)';
     m4Ctx.fillRect(M4_LANE_X - 40, M4_HIT_Y - cfg.hitWindow, 80, cfg.hitWindow * 2);
   }
   
   function m4DrawNote(n) {
-    // Note color on the canvas now matches its assigned identity color
-    // (the same one shown on the physical LED strip), instead of the
-    // old red/amber/green proximity gradient.
     m4Ctx.beginPath();
     m4Ctx.arc(M4_LANE_X, n.y, M4_NOTE_R, 0, Math.PI * 2);
     m4Ctx.fillStyle = M4_COLOR_CSS[n.colorCode] || '#888';
@@ -1258,30 +1205,20 @@
     showScreen('scr-menu');
   }
   
-  // Spacebar listener for Mode 4
   document.addEventListener('keydown', function(e) {
     if (e.code === 'Space' && document.getElementById('scr-game-m4').classList.contains('active')) {
       e.preventDefault();
       m4Kick();
     }
-  }
-                           
-  );
+  });
 
-window.addEventListener('beforeunload', () => {
+  window.addEventListener('beforeunload', () => {
     if (websocket && websocket.readyState === WebSocket.OPEN) {
         websocket.send("STOP_GAME");
         websocket.close();
     }
-});
+  });
 
-window.onload = () => {
-    initWS();
-    let savedSens = localStorage.getItem('globalSensitivity') || 350;
-    document.getElementById('sens-slider').value = savedSens;
-    document.getElementById('sens-val').innerText = savedSens;
-};
-  
   window.onload = () => {
     initWS();
     let savedSens = localStorage.getItem('globalSensitivity') || 350;
