@@ -601,8 +601,13 @@
         if (currentModeName === "" || !isRoundActive) return;
 
         if (currentModeName === "Reaction") {
-          document.getElementById('dispImpact').innerText = rxn > 0 ? rxn + "ms" : "HIT!";
-          document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
+          if (device === "TIMEOUT") {
+              document.getElementById('dispImpact').innerText = "TIMEOUT";
+              document.getElementById('statusMsg').innerText = "Too slow!";
+          } else {
+              document.getElementById('dispImpact').innerText = rxn > 0 ? rxn + "ms" : "HIT!";
+              document.getElementById('statusMsg').innerText = `Target: ${device} struck!`;
+          }
         } else {
           document.getElementById('dispImpact').innerText = pwr;
         }
