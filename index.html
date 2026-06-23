@@ -194,6 +194,12 @@
     <div class="stat-card">
       <h3>Impact / Reaction</h3>
       <h1 id="dispImpact" class="impact-big">--</h1>
+      <div class="stat-card">
+          <h3>Impact / Reaction</h3>
+          <h1 id="dispImpact" class="impact-big">--</h1>
+          <div id="ankleAlignDisp" style="font-size:1.3rem; font-weight:bold; margin-top:8px; display:none;"></div>
+          <div id="targetRangeDisp" style="color: #666; font-size: 0.9rem; margin-top: 10px;"></div>
+      </div>
       <div id="targetRangeDisp" style="color: #666; font-size: 0.9rem; margin-top: 10px;"></div>
     </div>
     <p id="statusMsg" style="font-weight:bold; font-size: 1.5rem;">GET READY...</p>
@@ -501,10 +507,32 @@ var m4ActiveBeatmap = [];
           return;
         }
         if (msg.type === "ANKLE_RESULT") {
-            console.log("[ANKLE]", msg.device, "beforeTwist:", msg.beforeTwist,
-                "beforeImpact:", msg.beforeImpact, "atImpact:", msg.atImpact,
-                "afterImpact:", msg.afterImpact, "twistVelocity:", msg.twistVelocity);
-            // TODO: display these 4 values + twist velocity somewhere in the UI
+            const impactAngle = msg.atImpact;
+            let alignment, color;
+            if (impactAngle >= -10.0 && impactAngle <= 10.0) {
+                alignment = "SQUARE"; color = "#00ffcc";
+            } else if (impactAngle < -10.0) {
+                alignment = "OVER"; color = "#ff3e3e";
+            } else {
+                alignment = "UNDER"; color = "#ffcc00";
+            }
+        
+            const alignDisp = document.getElementById('ankleAlignDisp');
+            if (alignDisp) {
+                alignDisp.style.display = 'block';
+                alignDisp.style.color = color;
+                alignDisp.innerText = `${alignment} (${impactAngle.toFixed(1)}°)`;
+            }
+        
+            // Also attach this angle to the most recent kick in the session log,
+            // so it shows correctly in the end-of-session summary too.
+            if (sessionKicks.length > 0) {
+                const lastKick = sessionKicks[sessionKicks.length - 1];
+                lastKick.ang = impactAngle;
+                lastKick.align = alignment;
+            }
+        
+            console.log("[ANKLE]", msg.device, "atImpact:", impactAngle, "alignment:", alignment);
             return;
         }
         if (msg.type === "M4_HIT") {
@@ -662,6 +690,7 @@ var m4ActiveBeatmap = [];
     websocket.send(`M1|${name}|${time}|${kicks}`);
     document.getElementById('dispName').innerText = name;
     showScreen('scr-game'); startTimer(time);
+    document.getElementById('ankleAlignDisp').style.display = 'none';
   }
 
   function startMode2() {
