@@ -500,6 +500,13 @@ var m4ActiveBeatmap = [];
           renderPairingPanel();
           return;
         }
+        if (msg.type === "ANKLE_RESULT") {
+            console.log("[ANKLE]", msg.device, "beforeTwist:", msg.beforeTwist,
+                "beforeImpact:", msg.beforeImpact, "atImpact:", msg.atImpact,
+                "afterImpact:", msg.afterImpact, "twistVelocity:", msg.twistVelocity);
+            // TODO: display these 4 values + twist velocity somewhere in the UI
+            return;
+        }
         if (msg.type === "M4_HIT") {
           const cfg = M4_CONFIGS[m4Diff];
           const base = cfg.hitWindow;
