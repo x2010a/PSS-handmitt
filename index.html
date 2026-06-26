@@ -507,34 +507,63 @@ var m4ActiveBeatmap = [];
           return;
         }
         if (msg.type === "ANKLE_RESULT") {
-            const impactAngle = msg.atImpact;
+            // Classify based on rotation DURING the kick (relative to this
+            // kick's own pre-twist baseline), not the absolute angle at impact.
+            // This matters because getAngleZ() has no absolute reference frame -
+            // it only measures rotation relative to wherever the device was at
+            // boot, so absolute values vary kick-to-kick depending on boot
+            // orientation. Subtracting beforeTwist cancels that boot-time
+            // offset out, leaving just the true rotation amount for this kick.
+            const rotationDuringKick = msg.atImpact - msg.beforeTwist;
+        
             let alignment, color;
-            if (impactAngle >= -10.0 && impactAngle <= 10.0) {
+            if (rotationDuringKick >= -10.0 && rotationDuringKick <= 10.0) {
                 alignment = "SQUARE"; color = "#00ffcc";
-            } else if (impactAngle < -10.0) {
+            } else if (rotationDuringKick < -10.0) {
                 alignment = "OVER"; color = "#ff3e3e";
             } else {
                 alignment = "UNDER"; color = "#ffcc00";
             }
         
+            // --- Live display (Mode 1 game screen) ---
             const alignDisp = document.getElementById('ankleAlignDisp');
             if (alignDisp) {
                 alignDisp.style.display = 'block';
                 alignDisp.style.color = color;
-                alignDisp.innerText = `${alignment} (${impactAngle.toFixed(1)}°)`;
+                alignDisp.innerText = `${alignment} (${rotationDuringKick.toFixed(1)}°)`;
             }
         
-            // Also attach this angle to the most recent kick in the session log,
-            // so it shows correctly in the end-of-session summary too.
+            // --- Live display (Mode 4 game screen, if present) ---
+            const m4Display = document.getElementById('m4-ankle-display');
+            if (m4Display) {
+                m4Display.style.display = 'block';
+                document.getElementById('ankle-before-twist').innerText = msg.beforeTwist.toFixed(1);
+                document.getElementById('ankle-before-impact').innerText = msg.beforeImpact.toFixed(1);
+                document.getElementById('ankle-at-impact').innerText = msg.atImpact.toFixed(1);
+                document.getElementById('ankle-after-impact').innerText = msg.afterImpact.toFixed(1);
+                document.getElementById('ankle-twist-vel').innerText = msg.twistVelocity.toFixed(0);
+                const m4AlignEl = document.getElementById('ankle-alignment');
+                if (m4AlignEl) {
+                    m4AlignEl.innerText = alignment;
+                    m4AlignEl.style.color = color;
+                }
+            }
+        
+            // --- Attach to the most recent kick in the session log ---
             if (sessionKicks.length > 0) {
                 const lastKick = sessionKicks[sessionKicks.length - 1];
-                lastKick.ang = impactAngle;
+                lastKick.ang = rotationDuringKick;
                 lastKick.align = alignment;
             }
         
-            console.log("[ANKLE]", msg.device, "atImpact:", impactAngle, "alignment:", alignment);
+            console.log("[ANKLE]", msg.device,
+                "beforeTwist:", msg.beforeTwist,
+                "atImpact:", msg.atImpact,
+                "rotationDuringKick:", rotationDuringKick.toFixed(1),
+                "alignment:", alignment);
             return;
         }
+        
         if (msg.type === "M4_HIT") {
           const cfg = M4_CONFIGS[m4Diff];
           const base = cfg.hitWindow;
