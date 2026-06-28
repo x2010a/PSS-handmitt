@@ -1778,6 +1778,7 @@
  var m5Canvas, m5Ctx;
  var M5_STAGES_PER_LEVEL = 5;
  var m5RestsSkippedSinceLastKick = 0;
+ var m5RestTimer = null; 
  
  // Generates a random kick/rest pattern for a given level number.
  // Level N = N kicks + floor(N/2) rest beats, matching your spec:
@@ -1900,19 +1901,22 @@ function advancePastRests() {
   m5DrawPlayCanvas();
 
   if (m5SlotIndex < m5Pattern.length && m5Pattern[m5SlotIndex] === 'R') {
-    playM5RestTick();
     setTimeout(() => {
+      playM5RestTick(); // moved inside - now plays only once the rest's own beat actually arrives, not immediately
+    }, 50); // tiny delay so it doesn't sound simultaneous with the kick that just landed
+
+    m5RestTimer = setTimeout(() => {
       m5SlotIndex++;
       m5RestsSkippedSinceLastKick++;
 
       if (m5SlotIndex >= m5Pattern.length) {
-        // The pattern ended on a rest - stage is now complete
+        m5SequenceLocked = true;
         m5DrawPlayCanvas();
         setTimeout(() => { if (m5Running) finishM5Stage(); }, 400);
         return;
       }
 
-      advancePastRests(); // keep checking in case of further rests
+      advancePastRests();
     }, m5GuideTempoMs);
   }
 }
@@ -1981,13 +1985,30 @@ function m5DrawCanvas() {
   });
 }
 
-function m5RegisterKick() { 
-  if (!m5Running || m5InPreview) return;
+function m5RegisterKick() {
+  if (!m5Running || m5InPreview || m5SequenceLocked) return;
   if (m5SlotIndex >= m5Pattern.length) return;
+
+  // If a rest's auto-advance is still pending, cancel it - this kick
+  // is taking over the advancement now, since it arrived before the
+  // rest's own timer fired.
+  if (m5RestTimer) {
+    clearTimeout(m5RestTimer);
+    m5RestTimer = null;
+  }
 
   const now = Date.now();
   m5KickTimes.push(now);
   playM5PreviewTick();
+
+  // If we're currently sitting on a rest slot when this kick arrives,
+  // count it as having skipped that rest (the kick itself proves
+  // enough time passed), then proceed exactly like a normal kick on
+  // whatever slot comes next.
+  while (m5SlotIndex < m5Pattern.length && m5Pattern[m5SlotIndex] === 'R') {
+    m5SlotIndex++;
+    m5RestsSkippedSinceLastKick++;
+  }
 
   if (m5KickTimes.length > 1) {
     const gap = now - m5KickTimes[m5KickTimes.length - 2];
@@ -2004,6 +2025,7 @@ function m5RegisterKick() {
   m5SlotIndex++;
 
   if (m5SlotIndex >= m5Pattern.length) {
+    m5SequenceLocked = true;
     m5DrawPlayCanvas();
     setTimeout(() => { if (m5Running) finishM5Stage(); }, 400);
     return;
