@@ -1889,21 +1889,9 @@ function m5HighlightPreviewSlot(index, slotType) {
 }
 
 function startM5PlayPhase() {
-  let cumulativeMs = 1000;
-  m5Pattern.forEach((slotType) => {
-    m5Slots.push({
-      type: slotType,
-      guideMs: cumulativeMs,
-      y: -M5_SLOT_R,
-      resolved: false,
-      spawnTime: Date.now()
-    });
-    cumulativeMs += m5GuideTempoMs;
-  });
-
+  m5SlotIndex = 0;
   m5Running = true;
-  m5LastTs = 0;
-  requestAnimationFrame(m5Loop);
+  m5DrawPlayCanvas();
 }
 
  function m5Loop(ts) {
@@ -1963,21 +1951,34 @@ function m5DrawCanvas() {
 }
 
  function m5RegisterKick() {
-  if (!m5Running || m5InPreview) return; // blocks scoring during preview
+  if (!m5Running || m5InPreview) return;
+  if (m5SlotIndex >= m5Pattern.length) return;
   const now = Date.now();
   m5KickTimes.push(now);
 
+  // Check if the slot we're currently sitting at (not yet resolved)
+  // is a rest - if so, this kick is jumping OVER that rest to reach
+  // the next kick slot, and the gap should be normalized accordingly.
+  const wasAfterRest = m5Pattern[m5SlotIndex] === 'R';
+
   if (m5KickTimes.length > 1) {
     const gap = now - m5KickTimes[m5KickTimes.length - 2];
-    m5GapHistory.push(gap);
+    const normalizedGap = wasAfterRest ? gap / 2 : gap;
+    m5GapHistory.push(normalizedGap);
     scoreM5Fluidity();
   } else {
     m5ShowFeedback('Kick!', '#5C7A66');
   }
 
-  m5SlotIndex++;
-}
+  // Advance past the rest slot too, if one was just skipped
+  m5SlotIndex += wasAfterRest ? 2 : 1;
+  m5DrawPlayCanvas();
 
+  if (m5SlotIndex >= m5Pattern.length) {
+    setTimeout(() => { if (m5Running) finishM5Stage(); }, 400);
+  }
+}
+ 
 function scoreM5Fluidity() {
   if (m5GapHistory.length < 2) return;
 
@@ -2047,6 +2048,40 @@ function scoreM5Fluidity() {
    updateM5HUD();
    if (m5Running) loadM5Stage();
  }
+
+ function m5DrawPlayCanvas() {
+    m5Ctx.fillStyle = '#15140F';
+    m5Ctx.fillRect(0, 0, M5_W, M5_H);
+  
+    const spacing = M5_W / (m5Pattern.length + 1);
+    m5Pattern.forEach((slotType, i) => {
+      const x = spacing * (i + 1);
+      const y = M5_H / 2;
+      m5Ctx.beginPath();
+      m5Ctx.arc(x, y, M5_SLOT_R, 0, Math.PI * 2);
+  
+      if (i < m5SlotIndex) {
+        // already completed - dim/checked off
+        m5Ctx.fillStyle = 'rgba(92,122,102,0.35)';
+        m5Ctx.fill();
+      } else if (i === m5SlotIndex) {
+        // current active slot - bright highlight
+        m5Ctx.fillStyle = slotType === 'K' ? '#B5651D' : 'rgba(232,226,213,0.6)';
+        m5Ctx.fill();
+      } else {
+        // upcoming - outline only, same as preview
+        if (slotType === 'K') {
+          m5Ctx.fillStyle = '#36322C';
+          m5Ctx.fill();
+          m5Ctx.strokeStyle = 'rgba(232,226,213,0.2)';
+        } else {
+          m5Ctx.strokeStyle = 'rgba(232,226,213,0.25)';
+        }
+        m5Ctx.lineWidth = 1.5;
+        m5Ctx.stroke();
+      }
+    });
+  }
 
   window.addEventListener('beforeunload', () => {
    if (websocket && websocket.readyState === WebSocket.OPEN) {
