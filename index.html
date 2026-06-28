@@ -1899,8 +1899,9 @@ function startM5PlayPhase() {
 
 function skipRestsAtCurrentIndex() {
   while (m5SlotIndex < m5Pattern.length && m5Pattern[m5SlotIndex] === 'R') {
-    m5SlotIndex++;
-    m5RestsSkippedSinceLastKick++;
+   playM5RestTick(); 
+   m5SlotIndex++;
+   m5RestsSkippedSinceLastKick++;
   }
 }
  
@@ -1966,6 +1967,7 @@ function m5RegisterKick() {
 
   const now = Date.now();
   m5KickTimes.push(now);
+  playM5PreviewTick(); // ADD - same kick cue sound used in preview, now also plays on actual hits
 
   if (m5KickTimes.length > 1) {
     const gap = now - m5KickTimes[m5KickTimes.length - 2];
@@ -1978,7 +1980,7 @@ function m5RegisterKick() {
     m5ShowFeedback('Kick!', '#5C7A66');
   }
 
-  m5RestsSkippedSinceLastKick = 0; // reset before counting the next gap
+  m5RestsSkippedSinceLastKick = 0;
   m5SlotIndex++;
   skipRestsAtCurrentIndex();
   m5DrawPlayCanvas();
