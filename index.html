@@ -1892,9 +1892,21 @@ function m5HighlightPreviewSlot(index, slotType) {
 
 function startM5PlayPhase() {
   m5SlotIndex = 0;
-  skipRestsAtCurrentIndex(); 
   m5Running = true;
-  m5DrawPlayCanvas();
+  advancePastRests();
+}
+
+function advancePastRests() {
+  m5DrawPlayCanvas(); // show current state first
+
+  if (m5SlotIndex < m5Pattern.length && m5Pattern[m5SlotIndex] === 'R') {
+    playM5RestTick();
+    setTimeout(() => {
+      m5SlotIndex++;
+      m5RestsSkippedSinceLastKick++;
+      advancePastRests(); // recurse in case of back-to-back rests (shouldn't happen, but safe)
+    }, m5GuideTempoMs); // wait roughly one beat before visually advancing past it
+  }
 }
 
 function skipRestsAtCurrentIndex() {
@@ -1961,13 +1973,13 @@ function m5DrawCanvas() {
   });
 }
 
-function m5RegisterKick() {
+function m5RegisterKick() { 
   if (!m5Running || m5InPreview) return;
   if (m5SlotIndex >= m5Pattern.length) return;
 
   const now = Date.now();
   m5KickTimes.push(now);
-  playM5PreviewTick(); // ADD - same kick cue sound used in preview, now also plays on actual hits
+  playM5PreviewTick();
 
   if (m5KickTimes.length > 1) {
     const gap = now - m5KickTimes[m5KickTimes.length - 2];
@@ -1982,12 +1994,14 @@ function m5RegisterKick() {
 
   m5RestsSkippedSinceLastKick = 0;
   m5SlotIndex++;
-  skipRestsAtCurrentIndex();
-  m5DrawPlayCanvas();
 
   if (m5SlotIndex >= m5Pattern.length) {
+    m5DrawPlayCanvas();
     setTimeout(() => { if (m5Running) finishM5Stage(); }, 400);
+    return;
   }
+
+  advancePastRests();
 }
  
 function scoreM5Fluidity() {
