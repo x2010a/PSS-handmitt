@@ -561,7 +561,8 @@
   </div>
 
   <div id="scr-game-m5" class="screen">
-    <audio id="m5-kick-cue-player" preload="auto" src="audio/kick-cue.mp3"></audio>
+    <audio id="m5-kick-cue-player" preload="auto" src="audio/mode 5 kick sound.mp3"></audio>
+    <audio id="m5-rest-cue-player" preload="auto" src="audio/mode 5 no kick sound.mp3"></audio>
     <div style="display:flex; justify-content:space-between; align-items:center; padding:0 6px; max-width:400px; margin:0 auto;">
       <div style="text-align:center;">
         <div id="m5-score" style="font-family:'Georgia',serif; font-size:1.7rem; font-weight:700; color:var(--sage);">0</div>
@@ -1262,6 +1263,14 @@
     }
   }
 
+ function playM5RestTick() {
+    const player = document.getElementById('m5-rest-cue-player');
+    if (player) {
+      player.currentTime = 0;
+      player.play();
+    }
+  }
+
   function getDB() { return JSON.parse(localStorage.getItem('paddleDB') || '{"profiles":[]}'); }
   function saveDB(db) { localStorage.setItem('paddleDB', JSON.stringify(db)); }
 
@@ -1826,19 +1835,23 @@ function runM5Preview() {
   m5DrawPreviewCanvas();
 
   function tick() {
-    if (m5PreviewIndex >= m5Pattern.length) {
-      clearTimeout(m5PreviewTimer);
-      m5InPreview = false;
-      m5ShowFeedback('Your turn!', '#5C7A66');
-      setTimeout(startM5PlayPhase, 600);
-      return;
-    }
-    const slotType = m5Pattern[m5PreviewIndex];
-    m5HighlightPreviewSlot(m5PreviewIndex, slotType);
-    if (slotType === 'K') playM5PreviewTick();
-    m5PreviewIndex++;
-    m5PreviewTimer = setTimeout(tick, m5GuideTempoMs);
+  if (m5PreviewIndex >= m5Pattern.length) {
+    clearTimeout(m5PreviewTimer);
+    m5InPreview = false;
+    m5ShowFeedback('Your turn!', '#5C7A66');
+    setTimeout(startM5PlayPhase, 600);
+    return;
   }
+  const slotType = m5Pattern[m5PreviewIndex];
+  m5HighlightPreviewSlot(m5PreviewIndex, slotType);
+  if (slotType === 'K') {
+    playM5PreviewTick();
+  } else {
+    playM5RestTick();
+  }
+  m5PreviewIndex++;
+  m5PreviewTimer = setTimeout(tick, m5GuideTempoMs);
+}
   tick();
 }
 
