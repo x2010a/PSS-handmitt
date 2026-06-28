@@ -1222,6 +1222,7 @@
   m5KickTimes = [];
   m5GapHistory = [];
   m5RestsSkippedSinceLastKick = 0;
+  m5SequenceLocked = false;
   m5Slots = [];
 
   runM5Preview();
@@ -1779,6 +1780,7 @@
  var M5_STAGES_PER_LEVEL = 5;
  var m5RestsSkippedSinceLastKick = 0;
  var m5RestTimer = null; 
+ var m5SequenceLocked = false;
  
  // Generates a random kick/rest pattern for a given level number.
  // Level N = N kicks + floor(N/2) rest beats, matching your spec:
@@ -1834,6 +1836,7 @@ function playM5PreviewTick() {
 function runM5Preview() {
   m5InPreview = true;
   m5PreviewIndex = 0;
+  m5SequenceLocked = false;
   m5ShowFeedback('Watch the pattern...', '#D9A23B');
   m5DrawPreviewCanvas();
 
