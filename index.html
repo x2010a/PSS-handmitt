@@ -1897,15 +1897,23 @@ function startM5PlayPhase() {
 }
 
 function advancePastRests() {
-  m5DrawPlayCanvas(); // show current state first
+  m5DrawPlayCanvas();
 
   if (m5SlotIndex < m5Pattern.length && m5Pattern[m5SlotIndex] === 'R') {
     playM5RestTick();
     setTimeout(() => {
       m5SlotIndex++;
       m5RestsSkippedSinceLastKick++;
-      advancePastRests(); // recurse in case of back-to-back rests (shouldn't happen, but safe)
-    }, m5GuideTempoMs); // wait roughly one beat before visually advancing past it
+
+      if (m5SlotIndex >= m5Pattern.length) {
+        // The pattern ended on a rest - stage is now complete
+        m5DrawPlayCanvas();
+        setTimeout(() => { if (m5Running) finishM5Stage(); }, 400);
+        return;
+      }
+
+      advancePastRests(); // keep checking in case of further rests
+    }, m5GuideTempoMs);
   }
 }
 
