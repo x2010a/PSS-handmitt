@@ -1221,6 +1221,7 @@
   m5SlotIndex = 0;
   m5KickTimes = [];
   m5GapHistory = [];
+  m5RestsSkippedSinceLastKick = 0;
   m5Slots = [];
 
   runM5Preview();
@@ -1776,6 +1777,7 @@
  var m5Slots = [];
  var m5Canvas, m5Ctx;
  var M5_STAGES_PER_LEVEL = 5;
+ var m5RestsSkippedSinceLastKick = 0;
  
  // Generates a random kick/rest pattern for a given level number.
  // Level N = N kicks + floor(N/2) rest beats, matching your spec:
@@ -1890,10 +1892,18 @@ function m5HighlightPreviewSlot(index, slotType) {
 
 function startM5PlayPhase() {
   m5SlotIndex = 0;
+  skipRestsAtCurrentIndex(); 
   m5Running = true;
   m5DrawPlayCanvas();
 }
 
+function skipRestsAtCurrentIndex() {
+  while (m5SlotIndex < m5Pattern.length && m5Pattern[m5SlotIndex] === 'R') {
+    m5SlotIndex++;
+    m5RestsSkippedSinceLastKick++;
+  }
+}
+ 
  function m5Loop(ts) {
   if (!m5Running) return;
   const dt = m5LastTs ? Math.min(ts - m5LastTs, 50) : 16;
@@ -1950,28 +1960,27 @@ function m5DrawCanvas() {
   });
 }
 
- function m5RegisterKick() {
+function m5RegisterKick() {
   if (!m5Running || m5InPreview) return;
   if (m5SlotIndex >= m5Pattern.length) return;
+
   const now = Date.now();
   m5KickTimes.push(now);
 
-  // Check if the slot we're currently sitting at (not yet resolved)
-  // is a rest - if so, this kick is jumping OVER that rest to reach
-  // the next kick slot, and the gap should be normalized accordingly.
-  const wasAfterRest = m5Pattern[m5SlotIndex] === 'R';
-
   if (m5KickTimes.length > 1) {
     const gap = now - m5KickTimes[m5KickTimes.length - 2];
-    const normalizedGap = wasAfterRest ? gap / 2 : gap;
+    const normalizedGap = m5RestsSkippedSinceLastKick > 0
+      ? gap / (m5RestsSkippedSinceLastKick + 1)
+      : gap;
     m5GapHistory.push(normalizedGap);
     scoreM5Fluidity();
   } else {
     m5ShowFeedback('Kick!', '#5C7A66');
   }
 
-  // Advance past the rest slot too, if one was just skipped
-  m5SlotIndex += wasAfterRest ? 2 : 1;
+  m5RestsSkippedSinceLastKick = 0; // reset before counting the next gap
+  m5SlotIndex++;
+  skipRestsAtCurrentIndex();
   m5DrawPlayCanvas();
 
   if (m5SlotIndex >= m5Pattern.length) {
