@@ -212,6 +212,7 @@
   .mode-btn.m-reaction .mode-icon { background: var(--sage); }
   .mode-btn.m-pss .mode-icon { background: #8B6F47; }
   .mode-btn.m-rhythm .mode-icon { background: #6B7FA8; }
+  .mode-btn.m-comboflow .mode-icon { background: #7A5C8B; }
   .mode-title { font-family: 'Georgia', serif; font-size: 1.08rem; font-weight: 700; color: var(--text); }
   .mode-desc { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
 
@@ -410,6 +411,13 @@
           <div class="mode-desc">Kick to the beat</div>
         </div>
       </button>
+     <button class="mode-btn m-comboflow" onclick="playModeIntro('流','Combo Flow','Fluid combos, no hesitation'); showScreen('scr-settings-m5')">
+       <div class="mode-icon">流</div>
+       <div>
+         <div class="mode-title">Combo Flow</div>
+         <div class="mode-desc">Fluid combos, no hesitation</div>
+       </div>
+     </button>
     </div>
 
     <button class="secondary" onclick="openProfiles()" style="margin-top:18px;">User Profiles</button>
@@ -506,6 +514,23 @@
     <button class="secondary" onclick="showScreen('scr-menu')">BACK</button>
   </div>
 
+ <div id="scr-settings-m5" class="screen">
+    <h2>Mode 5: Combo Flow</h2>
+    <p class="tagline">Fluid combos, no hesitation</p>
+  
+    <select class="p-select" id="m5-profile">
+      <option value="Guest">-- Select Fighter --</option>
+    </select>
+  
+    <input type="number" id="m5-start-level" placeholder="Start at Level (e.g. 1)" min="1" value="1">
+    <small style="color: var(--text-dim); display:block; margin-top:-6px; margin-bottom:10px;">
+      Level = number of kicks per combo (Level 4 = 4 kicks + 2 rest beats)
+    </small>
+  
+    <button onclick="startMode5()">START</button>
+    <button class="secondary" onclick="showScreen('scr-menu')">BACK</button>
+  </div>
+
   <div id="scr-game-m4" class="screen">
     <audio id="m4-audio-player" preload="auto"></audio>
     <div style="display:flex; justify-content:space-between; align-items:center; padding:0 6px; max-width:400px; margin:0 auto;">
@@ -535,6 +560,40 @@
     </button>
   </div>
 
+  <div id="scr-game-m5" class="screen">
+    <audio id="m5-kick-cue-player" preload="auto" src="audio/kick-cue.mp3"></audio>
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:0 6px; max-width:400px; margin:0 auto;">
+      <div style="text-align:center;">
+        <div id="m5-score" style="font-family:'Georgia',serif; font-size:1.7rem; font-weight:700; color:var(--sage);">0</div>
+        <div style="font-size:0.72rem; color:var(--text-dim);">SCORE</div>
+      </div>
+      <div style="text-align:center;">
+        <div id="m5-level" style="font-family:'Georgia',serif; font-size:1.7rem; font-weight:700; color:var(--clay);">Lv 1</div>
+        <div style="font-size:0.72rem; color:var(--text-dim);">LEVEL</div>
+      </div>
+      <div style="text-align:center;">
+        <div id="m5-stage" style="font-family:'Georgia',serif; font-size:1.7rem; font-weight:700; color:var(--text);">1/5</div>
+        <div style="font-size:0.72rem; color:var(--text-dim);">STAGE</div>
+      </div>
+      <button onclick="manualEndMode5()" style="width:auto; padding:8px 16px; font-size:0.82rem; background:#8B5A4A; margin:0;">END</button>
+    </div>
+  
+    <div style="max-width:340px; margin:14px auto 6px;">
+      <div style="background:var(--line); border-radius:10px; height:18px; overflow:hidden;">
+        <div id="m5-hp-fill" style="background:var(--sage); height:100%; width:100%; transition:width 0.2s ease;"></div>
+      </div>
+      <div style="font-size:0.72rem; color:var(--text-dim); margin-top:4px;">MONSTER HP</div>
+    </div>
+  
+    <canvas id="m5-highway" width="300" height="400" style="display:block; margin:0 auto; border-radius:18px; background:#15140F;"></canvas>
+  
+    <div id="m5-feedback" style="text-align:center; height:32px; font-family:'Georgia',serif; font-size:1.3rem; font-weight:700; margin:6px 0; color:var(--sage);"></div>
+  
+    <button id="m5-kick-btn" style="background:var(--bg-card); border:2px solid var(--line); color:var(--text); font-size:1.2rem; padding:16px 0; margin-top:4px; width:90%;">
+      KICK &nbsp;[SPACE]
+    </button>
+  </div>
+ 
   <div id="scr-game" class="screen">
     <h2 id="dispName">Fighter</h2>
     <div id="timer">00</div>
@@ -630,12 +689,16 @@
     }
   };
 
-var m4Audio = null;
-var m4BeatIndex = 0;
-var m4ActiveBeatmap = [];
+  var m4Audio = null;
+  var m4BeatIndex = 0;
+  var m4ActiveBeatmap = [];
 
   var M4_COLOR_CODES = ['1', '2', '3', '4', '5', '6'];
   var m4LastNoteColorCode = null;
+
+  var m5InPreview = false;
+  var m5PreviewIndex = 0;
+  var m5PreviewTimer = null;
 
   function getRandomNoteColorCode() {
     let code;
@@ -985,7 +1048,8 @@ var m4ActiveBeatmap = [];
 
       if (document.getElementById('modal-over').style.display === "flex" ||
           (!document.getElementById('scr-game').classList.contains('active') &&
-           !document.getElementById('scr-game-m4').classList.contains('active'))) {
+           !document.getElementById('scr-game-m4').classList.contains('active') &&
+           !document.getElementById('scr-game-m5').classList.contains('active'))) {
           return;
       }
 
@@ -1019,6 +1083,11 @@ var m4ActiveBeatmap = [];
           } else {
             msg.innerText = "OVERKILL"; msg.style.color = "#D9A23B";
           }
+        }
+
+        if (currentModeName === "ComboFlow") {
+          m5RegisterKick();
+          return; // skip generic sessionKicks/dispImpact logic entirely - Mode 5 has its own scoring path
         }
 
         if (device === "ANKLE" || angle > 0) {
@@ -1127,6 +1196,72 @@ var m4ActiveBeatmap = [];
     websocket.send(`M3_TANK|${user}|${weight}`);
   }
 
+ function startMode5() {
+   const levelInput = parseInt(document.getElementById('m5-start-level').value) || 1;
+   m5Level = Math.max(1, levelInput);
+   m5Stage = 0;
+   m5Score = 0;
+   m5MonsterHP = 100;
+   currentModeName = "ComboFlow";
+   isRoundActive = true;
+   isEndingProcessed = false;
+   isDNF = false;
+ 
+   m5Canvas = document.getElementById('m5-highway');
+   m5Ctx = m5Canvas.getContext('2d');
+ 
+   showScreen('scr-game-m5');
+   updateM5HUD();
+   loadM5Stage();
+ }
+ 
+ function loadM5Stage() {
+  m5Pattern = generateM5Pattern(m5Level);
+  m5SlotIndex = 0;
+  m5KickTimes = [];
+  m5GapHistory = [];
+  m5Slots = [];
+
+  runM5Preview();
+}
+
+ function saveM5History(premature) {
+    const profileSelect = document.querySelector('#scr-settings-m5 .p-select');
+    const fighterName = profileSelect ? profileSelect.value : "Guest";
+    if (!fighterName || fighterName === "Guest") return;
+  
+    const db = getDB();
+    db.profiles.forEach(p => {
+      if (p.name.trim() === fighterName) {
+        if (!p.comboHighScores) p.comboHighScores = [];
+        p.comboHighScores.push({
+          date: new Date().toLocaleString(),
+          levelReached: m5Level,
+          stageReached: m5Stage + 1,
+          score: m5Score,
+          dnf: premature
+        });
+      }
+    });
+    saveDB(db);
+  }
+  
+  function manualEndMode5() {
+    if (confirm("End session now and save results?")) {
+      if (!isEndingProcessed) {
+        isEndingProcessed = true;
+        m5Running = false;
+        clearTimeout(m5PreviewTimer);
+        cancelAnimationFrame(m5AnimFrame);
+        if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
+        saveM5History(true);
+        currentModeName = "";
+        isRoundActive = false;
+        showScreen('scr-menu');
+      }
+    }
+  }
+
   function getDB() { return JSON.parse(localStorage.getItem('paddleDB') || '{"profiles":[]}'); }
   function saveDB(db) { localStorage.setItem('paddleDB', JSON.stringify(db)); }
 
@@ -1211,6 +1346,8 @@ var m4ActiveBeatmap = [];
   function closeModal(targetScreen = 'scr-menu') {
     if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
     clearInterval(countdownTimer); clearInterval(tankInterval);
+    if (m5Running) { m5Running = false; cancelAnimationFrame(m5AnimFrame); }
+    m5InPreview = false; clearTimeout(m5PreviewTimer); // ADD THESE TWO
     currentModeName = ""; isRoundActive = false; isEndingProcessed = false;
     document.getElementById('modal-over').style.display = "none";
     showScreen(targetScreen);
@@ -1336,6 +1473,7 @@ var m4ActiveBeatmap = [];
       if (!isEndingProcessed) {
         isEndingProcessed = true;
         if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
+        if (m5Running) { m5Running = false; cancelAnimationFrame(m5AnimFrame); }
         endGame(true);
       }
     }
@@ -1605,19 +1743,305 @@ var m4ActiveBeatmap = [];
     }
     showScreen('scr-menu');
   }
-  
-  document.addEventListener('keydown', function(e) {
-    if (e.code === 'Space' && document.getElementById('scr-game-m4').classList.contains('active')) {
-      e.preventDefault();
-      m4Kick();
+
+ // ==========================================
+ // MODE 5 - COMBO FLOW TRAINER
+ // ==========================================
+
+ var m5Running = false;
+ var m5Level = 1;
+ var m5Stage = 0;
+ var m5Pattern = [];
+ var m5SlotIndex = 0;
+ var m5KickTimes = [];
+ var m5GapHistory = [];
+ var m5GuideTempoMs = 700;
+ var m5Score = 0;
+ var m5MonsterHP = 100;
+ var m5AnimFrame;
+ var m5LastTs = 0;
+ var M5_LANE_X = 150;
+ var M5_HIT_Y = 340;
+ var M5_SLOT_R = 20;
+ var M5_W = 300, M5_H = 400;
+ var m5Slots = [];
+ var m5Canvas, m5Ctx;
+ var M5_STAGES_PER_LEVEL = 5;
+ 
+ // Generates a random kick/rest pattern for a given level number.
+ // Level N = N kicks + floor(N/2) rest beats, matching your spec:
+ // Level 4 = 4 kicks + 2 rests. Rests are placed randomly among the
+ // kicks, but never two rests back-to-back (keeps it a combo, not a
+ // stop-start drill).
+ function generateM5Pattern(level) {
+   const kickCount = level;
+   const restCount = Math.floor(level / 2);
+   const totalSlots = kickCount + restCount;
+ 
+   let slots = new Array(kickCount).fill('K');
+ 
+   // Pick restCount distinct insertion points among the kicks,
+   // avoiding adjacent rest placement.
+   let attempts = 0;
+   while (true) {
+     attempts++;
+     let candidate = slots.slice();
+     let insertPositions = [];
+     // Choose restCount random gap positions (0..kickCount) to insert a rest
+     while (insertPositions.length < restCount) {
+       const pos = Math.floor(Math.random() * (candidate.length + 1));
+       insertPositions.push(pos);
+     }
+     // Insert from the end so earlier indices don't shift
+     insertPositions.sort((a, b) => b - a).forEach(pos => {
+       candidate.splice(pos, 0, 'R');
+     });
+ 
+     // Validate no two 'R's are adjacent
+     let valid = true;
+     for (let i = 0; i < candidate.length - 1; i++) {
+       if (candidate[i] === 'R' && candidate[i + 1] === 'R') { valid = false; break; }
+     }
+     if (valid || attempts > 30) { // safety cap to avoid infinite loop on edge cases
+       slots = candidate;
+       break;
+     }
+   }
+ 
+   return slots;
+ }
+
+function playM5PreviewTick() {
+  const player = document.getElementById('m5-kick-cue-player');
+  if (player) {
+    player.currentTime = 0;
+    player.play();
+  }
+}
+
+function runM5Preview() {
+  m5InPreview = true;
+  m5PreviewIndex = 0;
+  m5ShowFeedback('Watch the pattern...', '#D9A23B');
+  m5DrawPreviewCanvas();
+
+  function tick() {
+    if (m5PreviewIndex >= m5Pattern.length) {
+      clearTimeout(m5PreviewTimer);
+      m5InPreview = false;
+      m5ShowFeedback('Your turn!', '#5C7A66');
+      setTimeout(startM5PlayPhase, 600);
+      return;
     }
+    const slotType = m5Pattern[m5PreviewIndex];
+    m5HighlightPreviewSlot(m5PreviewIndex, slotType);
+    if (slotType === 'K') playM5PreviewTick();
+    m5PreviewIndex++;
+    m5PreviewTimer = setTimeout(tick, m5GuideTempoMs);
+  }
+  tick();
+}
+
+function m5DrawPreviewCanvas() {
+  m5Ctx.fillStyle = '#15140F';
+  m5Ctx.fillRect(0, 0, M5_W, M5_H);
+
+  const spacing = M5_W / (m5Pattern.length + 1);
+  m5Pattern.forEach((slotType, i) => {
+    const x = spacing * (i + 1);
+    const y = M5_H / 2;
+    m5Ctx.beginPath();
+    m5Ctx.arc(x, y, M5_SLOT_R, 0, Math.PI * 2);
+    if (slotType === 'K') {
+      m5Ctx.fillStyle = '#36322C';
+      m5Ctx.fill();
+      m5Ctx.strokeStyle = 'rgba(232,226,213,0.2)';
+    } else {
+      m5Ctx.strokeStyle = 'rgba(232,226,213,0.25)';
+    }
+    m5Ctx.lineWidth = 1.5;
+    m5Ctx.stroke();
+  });
+}
+
+function m5HighlightPreviewSlot(index, slotType) {
+  m5DrawPreviewCanvas();
+  const spacing = M5_W / (m5Pattern.length + 1);
+  const x = spacing * (index + 1);
+  const y = M5_H / 2;
+  m5Ctx.beginPath();
+  m5Ctx.arc(x, y, M5_SLOT_R, 0, Math.PI * 2);
+  m5Ctx.fillStyle = slotType === 'K' ? '#B5651D' : 'rgba(232,226,213,0.5)';
+  m5Ctx.fill();
+}
+
+function startM5PlayPhase() {
+  let cumulativeMs = 1000;
+  m5Pattern.forEach((slotType) => {
+    m5Slots.push({
+      type: slotType,
+      guideMs: cumulativeMs,
+      y: -M5_SLOT_R,
+      resolved: false,
+      spawnTime: Date.now()
+    });
+    cumulativeMs += m5GuideTempoMs;
   });
 
-  window.addEventListener('beforeunload', () => {
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-        websocket.send("STOP_GAME");
-        websocket.close();
+  m5Running = true;
+  m5LastTs = 0;
+  requestAnimationFrame(m5Loop);
+}
+
+ function m5Loop(ts) {
+  if (!m5Running) return;
+  const dt = m5LastTs ? Math.min(ts - m5LastTs, 50) : 16;
+  m5LastTs = ts;
+
+  const speedPx = (M5_HIT_Y + M5_SLOT_R) / (m5GuideTempoMs / 16);
+
+  m5Slots.forEach(s => {
+    if (!s.resolved) s.y += speedPx * (dt / 16);
+  });
+
+  m5Slots = m5Slots.filter(s => s.y < M5_H + 100);
+
+  m5DrawCanvas();
+
+  if (m5Slots.length === 0 && m5SlotIndex >= m5Pattern.length) {
+    finishM5Stage();
+    return;
+  }
+
+  m5AnimFrame = requestAnimationFrame(m5Loop);
+}
+
+function m5DrawCanvas() {
+  m5Ctx.fillStyle = '#15140F';
+  m5Ctx.fillRect(0, 0, M5_W, M5_H);
+
+  m5Ctx.fillStyle = 'rgba(232,226,213,0.03)';
+  m5Ctx.beginPath();
+  m5Ctx.roundRect(M5_LANE_X - 40, 0, 80, M5_H, 6);
+  m5Ctx.fill();
+
+  m5Ctx.strokeStyle = 'rgba(181,101,29,0.5)';
+  m5Ctx.lineWidth = 2;
+  m5Ctx.beginPath();
+  m5Ctx.moveTo(M5_LANE_X - 40, M5_HIT_Y);
+  m5Ctx.lineTo(M5_LANE_X + 40, M5_HIT_Y);
+  m5Ctx.stroke();
+
+  m5Slots.forEach(s => {
+    m5Ctx.beginPath();
+    m5Ctx.arc(M5_LANE_X, s.y, M5_SLOT_R, 0, Math.PI * 2);
+    if (s.type === 'K') {
+      m5Ctx.fillStyle = '#B5651D';
+      m5Ctx.fill();
+      m5Ctx.strokeStyle = 'rgba(232,226,213,0.2)';
+      m5Ctx.lineWidth = 1.5;
+      m5Ctx.stroke();
+    } else {
+      m5Ctx.strokeStyle = 'rgba(232,226,213,0.35)';
+      m5Ctx.lineWidth = 2;
+      m5Ctx.stroke();
     }
+  });
+}
+
+ function m5RegisterKick() {
+  if (!m5Running || m5InPreview) return; // blocks scoring during preview
+  const now = Date.now();
+  m5KickTimes.push(now);
+
+  if (m5KickTimes.length > 1) {
+    const gap = now - m5KickTimes[m5KickTimes.length - 2];
+    m5GapHistory.push(gap);
+    scoreM5Fluidity();
+  } else {
+    m5ShowFeedback('Kick!', '#5C7A66');
+  }
+
+  m5SlotIndex++;
+}
+
+function scoreM5Fluidity() {
+  if (m5GapHistory.length < 2) return;
+
+  const avg = m5GapHistory.reduce((a, b) => a + b, 0) / m5GapHistory.length;
+  const latestGap = m5GapHistory[m5GapHistory.length - 1];
+  const deviation = Math.abs(latestGap - avg) / avg;
+
+  let damage;
+  if (deviation < 0.10) {
+    damage = 20; m5ShowFeedback('Smooth!', '#5C7A66');
+  } else if (deviation < 0.25) {
+    damage = 10; m5ShowFeedback('OK', '#D9A23B');
+  } else {
+    damage = 3; m5ShowFeedback('Jerky', '#C77B5C');
+  }
+
+  m5MonsterHP = Math.max(0, m5MonsterHP - damage);
+  m5Score += damage;
+  updateM5HUD();
+
+  if (m5MonsterHP <= 0) {
+    setTimeout(() => { if (m5Running) advanceM5Level(); }, 300);
+  }
+}
+ 
+  document.addEventListener('keydown', function(e) {
+   if (e.code === 'Space' && document.getElementById('scr-game-m4').classList.contains('active')) {
+     e.preventDefault();
+     m4Kick();
+   }
+   if (e.code === 'Space' && document.getElementById('scr-game-m5').classList.contains('active')) {
+     e.preventDefault();
+     m5RegisterKick();
+   }
+ });
+
+ function updateM5HUD() {
+   document.getElementById('m5-score').innerText = m5Score.toLocaleString();
+   document.getElementById('m5-level').innerText = 'Lv ' + m5Level;
+   document.getElementById('m5-stage').innerText = (m5Stage + 1) + '/' + M5_STAGES_PER_LEVEL;
+   const hpFill = document.getElementById('m5-hp-fill');
+   if (hpFill) hpFill.style.width = m5MonsterHP + '%';
+ }
+ 
+ function m5ShowFeedback(txt, color) {
+   const el = document.getElementById('m5-feedback');
+   if (!el) return;
+   el.textContent = txt;
+   el.style.color = color;
+   clearTimeout(el._t);
+   el._t = setTimeout(() => el.textContent = '', 600);
+ }
+ 
+ function finishM5Stage() {
+   m5Stage++;
+   if (m5Stage >= M5_STAGES_PER_LEVEL) {
+     advanceM5Level();
+     return;
+   }
+   if (m5Running) loadM5Stage();
+ }
+ 
+ function advanceM5Level() {
+   m5Level++;
+   m5Stage = 0;
+   m5MonsterHP = 100;
+   updateM5HUD();
+   if (m5Running) loadM5Stage();
+ }
+
+  window.addEventListener('beforeunload', () => {
+   if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send("STOP_GAME");
+      websocket.close();
+   }
+   if (m5Running) { m5Running = false; cancelAnimationFrame(m5AnimFrame); }
+   m5InPreview = false; clearTimeout(m5PreviewTimer);
   });
 
   window.onload = () => {
