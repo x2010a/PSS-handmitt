@@ -2078,7 +2078,7 @@ function m5RegisterKick() {
 }
  
 function scoreM5Fluidity() {
-  if (m5GapHistory.length < 2) return;
+  if (m5GapHistory.length < 1) return;
 
   const avg = m5GapHistory.reduce((a, b) => a + b, 0) / m5GapHistory.length;
   const latestGap = m5GapHistory[m5GapHistory.length - 1];
