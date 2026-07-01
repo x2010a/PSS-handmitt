@@ -563,6 +563,8 @@
   <div id="scr-game-m5" class="screen">
     <audio id="m5-kick-cue-player" preload="auto" src="audio/mode 5 kick sound.mp3"></audio>
     <audio id="m5-rest-cue-player" preload="auto" src="audio/mode 5 no kick sound.mp3"></audio>
+    <audio id="m5-count-beat1-player" preload="auto" src="audio/starting beat 1.mp3"></audio>
+    <audio id="m5-count-beat2-player" preload="auto" src="audio/starting beat 2.mp3"></audio>
     <div style="display:flex; justify-content:space-between; align-items:center; padding:0 6px; max-width:400px; margin:0 auto;">
       <div style="text-align:center;">
         <div id="m5-score" style="font-family:'Georgia',serif; font-size:1.7rem; font-weight:700; color:var(--sage);">0</div>
@@ -1255,6 +1257,7 @@
         isEndingProcessed = true;
         m5Running = false;
         clearTimeout(m5PreviewTimer);
+        clearTimeout(m5CountInTimer);
         cancelAnimationFrame(m5AnimFrame);
         if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
         saveM5History(true);
@@ -1358,7 +1361,7 @@
     if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
     clearInterval(countdownTimer); clearInterval(tankInterval);
     if (m5Running) { m5Running = false; cancelAnimationFrame(m5AnimFrame); }
-    m5InPreview = false; clearTimeout(m5PreviewTimer); // ADD THESE TWO
+    m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer);
     currentModeName = ""; isRoundActive = false; isEndingProcessed = false;
     document.getElementById('modal-over').style.display = "none";
     showScreen(targetScreen);
@@ -1779,7 +1782,8 @@
  var m5Canvas, m5Ctx;
  var M5_STAGES_PER_LEVEL = 5;
  var m5RestsSkippedSinceLastKick = 0;
- var m5RestTimer = null; 
+ var m5RestTimer = null;
+ var m5CountInTimer = null;
  var m5SequenceLocked = false;
  
  // Generates a random kick/rest pattern for a given level number.
@@ -1833,32 +1837,61 @@ function playM5PreviewTick() {
   }
 }
 
+
+function runM5CountIn(callback) {
+  // Plays a 4-beat count-in (3x beat1, 1x beat2) at the current
+  // guide tempo, then calls the callback once the 4th beat lands.
+  // Used before both the preview and the kick set so there's always
+  // a rhythmic warning before anything starts.
+  const beat1 = document.getElementById('m5-count-beat1-player');
+  const beat2 = document.getElementById('m5-count-beat2-player');
+  let beat = 0;
+
+  function tick() {
+    beat++;
+    if (beat <= 3) {
+      if (beat1) { beat1.currentTime = 0; beat1.play(); }
+      m5ShowFeedback(beat + '...', '#8B7E6A');
+      m5CountInTimer = setTimeout(tick, m5GuideTempoMs);
+    } else {
+      if (beat2) { beat2.currentTime = 0; beat2.play(); }
+      m5ShowFeedback('GO!', '#5C7A66');
+      m5CountInTimer = setTimeout(callback, m5GuideTempoMs);
+    }
+  }
+  tick();
+}
+
 function runM5Preview() {
   m5InPreview = true;
   m5PreviewIndex = 0;
   m5SequenceLocked = false;
-  m5ShowFeedback('Watch the pattern...', '#D9A23B');
-  m5DrawPreviewCanvas();
+  m5ShowFeedback('Get ready...', '#8B7E6A');
+  m5DrawPreviewCanvas(); // show the full pattern layout while count-in plays
 
-  function tick() {
-  if (m5PreviewIndex >= m5Pattern.length) {
-    clearTimeout(m5PreviewTimer);
-    m5InPreview = false;
-    m5ShowFeedback('Your turn!', '#5C7A66');
-    setTimeout(startM5PlayPhase, 600);
-    return;
-  }
-  const slotType = m5Pattern[m5PreviewIndex];
-  m5HighlightPreviewSlot(m5PreviewIndex, slotType);
-  if (slotType === 'K') {
-    playM5PreviewTick();
-  } else {
-    playM5RestTick();
-  }
-  m5PreviewIndex++;
-  m5PreviewTimer = setTimeout(tick, m5GuideTempoMs);
-}
-  tick();
+  runM5CountIn(() => {
+    // count-in done - now run the actual preview
+    m5ShowFeedback('Watch the pattern...', '#D9A23B');
+
+    function tick() {
+      if (m5PreviewIndex >= m5Pattern.length) {
+        clearTimeout(m5PreviewTimer);
+        m5InPreview = false;
+        setTimeout(startM5PlayPhase, 600);
+        return;
+      }
+      const slotType = m5Pattern[m5PreviewIndex];
+      m5HighlightPreviewSlot(m5PreviewIndex, slotType);
+      if (slotType === 'K') {
+        playM5PreviewTick();
+      } else {
+        playM5RestTick();
+      }
+      m5PreviewIndex++;
+      m5PreviewTimer = setTimeout(tick, m5GuideTempoMs);
+    }
+    tick();
+  });
 }
 
 function m5DrawPreviewCanvas() {
@@ -1896,8 +1929,15 @@ function m5HighlightPreviewSlot(index, slotType) {
 
 function startM5PlayPhase() {
   m5SlotIndex = 0;
-  m5Running = true;
-  advancePastRests();
+  m5SequenceLocked = false;
+  m5ShowFeedback('Your turn!', '#5C7A66');
+  m5DrawPlayCanvas(); // show the full pattern ready while count-in plays
+
+  runM5CountIn(() => {
+    // count-in done - kick set is now live
+    m5Running = true;
+    advancePastRests(); // handle any rest at the very start of the pattern
+  });
 }
 
 function advancePastRests() {
@@ -2147,7 +2187,7 @@ function scoreM5Fluidity() {
       websocket.close();
    }
    if (m5Running) { m5Running = false; cancelAnimationFrame(m5AnimFrame); }
-   m5InPreview = false; clearTimeout(m5PreviewTimer);
+   m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer);
   });
 
   window.onload = () => {
