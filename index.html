@@ -2078,16 +2078,18 @@ function m5RegisterKick() {
 }
  
 function scoreM5Fluidity() {
-  if (m5GapHistory.length < 1) return;
+  if (m5GapHistory.length < 1) return; // only need 1 gap - score each kick independently
 
-  const avg = m5GapHistory.reduce((a, b) => a + b, 0) / m5GapHistory.length;
   const latestGap = m5GapHistory[m5GapHistory.length - 1];
-  const deviation = Math.abs(latestGap - avg) / avg;
+  // Score how close this gap is to the guide tempo rather than a
+  // rolling self-average. This fires from the very second kick onward,
+  // and rewards staying close to the suggested beat pace.
+  const deviation = Math.abs(latestGap - m5GuideTempoMs) / m5GuideTempoMs;
 
   let damage;
-  if (deviation < 0.10) {
+  if (deviation < 0.15) {
     damage = 20; m5ShowFeedback('Smooth!', '#5C7A66');
-  } else if (deviation < 0.25) {
+  } else if (deviation < 0.35) {
     damage = 10; m5ShowFeedback('OK', '#D9A23B');
   } else {
     damage = 3; m5ShowFeedback('Jerky', '#C77B5C');
@@ -2096,6 +2098,7 @@ function scoreM5Fluidity() {
   m5MonsterHP = Math.max(0, m5MonsterHP - damage);
   m5Score += damage;
   updateM5HUD();
+  console.log('[M5] gap:', latestGap, 'target:', m5GuideTempoMs, 'dev:', deviation.toFixed(2), 'damage:', damage, 'HP:', m5MonsterHP);
 
   if (m5MonsterHP <= 0) {
     setTimeout(() => { if (m5Running) advanceM5Level(); }, 300);
