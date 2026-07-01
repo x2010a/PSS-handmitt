@@ -1219,7 +1219,7 @@
  }
  
  function loadM5Stage() {
-  m5StageTransitioning = false;
+  m5StageTransitioning = false; // unlock - new stage is actually starting now
   m5Pattern = generateM5Pattern(m5Level);
   m5SlotIndex = 0;
   m5KickTimes = [];
@@ -1974,61 +1974,7 @@ function skipRestsAtCurrentIndex() {
   }
 }
  
- function m5Loop(ts) {
-  if (!m5Running) return;
-  const dt = m5LastTs ? Math.min(ts - m5LastTs, 50) : 16;
-  m5LastTs = ts;
 
-  const speedPx = (M5_HIT_Y + M5_SLOT_R) / (m5GuideTempoMs / 16);
-
-  m5Slots.forEach(s => {
-    if (!s.resolved) s.y += speedPx * (dt / 16);
-  });
-
-  m5Slots = m5Slots.filter(s => s.y < M5_H + 100);
-
-  m5DrawCanvas();
-
-  if (m5Slots.length === 0 && m5SlotIndex >= m5Pattern.length) {
-    finishM5Stage();
-    return;
-  }
-
-  m5AnimFrame = requestAnimationFrame(m5Loop);
-}
-
-function m5DrawCanvas() {
-  m5Ctx.fillStyle = '#15140F';
-  m5Ctx.fillRect(0, 0, M5_W, M5_H);
-
-  m5Ctx.fillStyle = 'rgba(232,226,213,0.03)';
-  m5Ctx.beginPath();
-  m5Ctx.roundRect(M5_LANE_X - 40, 0, 80, M5_H, 6);
-  m5Ctx.fill();
-
-  m5Ctx.strokeStyle = 'rgba(181,101,29,0.5)';
-  m5Ctx.lineWidth = 2;
-  m5Ctx.beginPath();
-  m5Ctx.moveTo(M5_LANE_X - 40, M5_HIT_Y);
-  m5Ctx.lineTo(M5_LANE_X + 40, M5_HIT_Y);
-  m5Ctx.stroke();
-
-  m5Slots.forEach(s => {
-    m5Ctx.beginPath();
-    m5Ctx.arc(M5_LANE_X, s.y, M5_SLOT_R, 0, Math.PI * 2);
-    if (s.type === 'K') {
-      m5Ctx.fillStyle = '#B5651D';
-      m5Ctx.fill();
-      m5Ctx.strokeStyle = 'rgba(232,226,213,0.2)';
-      m5Ctx.lineWidth = 1.5;
-      m5Ctx.stroke();
-    } else {
-      m5Ctx.strokeStyle = 'rgba(232,226,213,0.35)';
-      m5Ctx.lineWidth = 2;
-      m5Ctx.stroke();
-    }
-  });
-}
 
 function m5RegisterKick() {
   if (!m5Running || m5InPreview || m5SequenceLocked) return;
@@ -2136,8 +2082,8 @@ function scoreM5Fluidity() {
  }
  
  function finishM5Stage() {
-   if (m5StageTransitioning) return; 
-   m5StageTransitioning = true;  
+   if (m5StageTransitioning) return; // prevents double-fire from competing timeouts
+   m5StageTransitioning = true;
    m5Stage++;
    if (m5Stage >= M5_STAGES_PER_LEVEL) {
      advanceM5Level();
@@ -2147,8 +2093,8 @@ function scoreM5Fluidity() {
  }
  
  function advanceM5Level() {
-  if (m5StageTransitioning) return;
-   m5StageTransitioning = true; 
+   if (m5StageTransitioning) return; // prevents double-fire
+   m5StageTransitioning = true;
    m5Level++;
    m5Stage = 0;
    m5MonsterHP = 100;
