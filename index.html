@@ -1219,6 +1219,7 @@
  }
  
  function loadM5Stage() {
+  m5StageTransitioning = false;
   m5Pattern = generateM5Pattern(m5Level);
   m5SlotIndex = 0;
   m5KickTimes = [];
@@ -1785,6 +1786,7 @@
  var m5RestTimer = null;
  var m5CountInTimer = null;
  var m5SequenceLocked = false;
+ var m5StageTransitioning = false;
  
  // Generates a random kick/rest pattern for a given level number.
  // Level N = N kicks + floor(N/2) rest beats, matching your spec:
@@ -2134,6 +2136,8 @@ function scoreM5Fluidity() {
  }
  
  function finishM5Stage() {
+   if (m5StageTransitioning) return; 
+   m5StageTransitioning = true;  
    m5Stage++;
    if (m5Stage >= M5_STAGES_PER_LEVEL) {
      advanceM5Level();
@@ -2143,6 +2147,8 @@ function scoreM5Fluidity() {
  }
  
  function advanceM5Level() {
+  if (m5StageTransitioning) return;
+   m5StageTransitioning = true; 
    m5Level++;
    m5Stage = 0;
    m5MonsterHP = 100;
