@@ -2059,7 +2059,12 @@ function scoreM5Fluidity() {
   console.log('[M5] gap:', latestGap, 'target:', m5GuideTempoMs, 'dev:', deviation.toFixed(2), 'damage:', damage, 'HP:', m5MonsterHP);
 
   if (m5MonsterHP <= 0) {
-    setTimeout(() => { if (m5Running) advanceM5Level(); }, 300);
+    // Monster defeated - end the current stage early via finishM5Stage()
+    // which correctly handles both stage increment and level advancement.
+    // Do NOT call advanceM5Level() directly here - it bypasses the stage
+    // counter and causes stage display to stay stuck at 1/5.
+    m5SequenceLocked = true; // prevent any more kicks during the transition
+    setTimeout(() => { if (m5Running) finishM5Stage(); }, 300);
   }
 }
  
@@ -2095,21 +2100,22 @@ function scoreM5Fluidity() {
    if (m5StageTransitioning) return; // prevents double-fire from competing timeouts
    m5StageTransitioning = true;
    m5Stage++;
-   // Hard clamp - should never exceed M5_STAGES_PER_LEVEL but guards
-   // against any residual double-fire that slips through
-   if (m5Stage > M5_STAGES_PER_LEVEL) {
-     m5Stage = M5_STAGES_PER_LEVEL;
-   }
    if (m5Stage >= M5_STAGES_PER_LEVEL) {
-     advanceM5Level();
+     // completed all stages in this level - advance to next level
+     // note: m5StageTransitioning stays true here, loadM5Stage() resets it
+     m5Stage = 0;
+     m5Level++;
+     m5MonsterHP = 100;
+     updateM5HUD();
+     if (m5Running) loadM5Stage();
      return;
    }
    if (m5Running) loadM5Stage();
  }
  
  function advanceM5Level() {
-   if (m5StageTransitioning) return; // prevents double-fire
-   m5StageTransitioning = true;
+   // kept for any future direct calls, but level advancement is now
+   // handled inline in finishM5Stage to avoid the transitioning lock conflict
    m5Level++;
    m5Stage = 0;
    m5MonsterHP = 100;
