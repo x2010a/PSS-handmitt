@@ -1226,6 +1226,7 @@
   m5GapHistory = [];
   m5RestsSkippedSinceLastKick = 0;
   m5SequenceLocked = false;
+  m5LastKickTime = 0;
   m5Slots = [];
 
   runM5Preview();
@@ -1787,6 +1788,8 @@
  var m5CountInTimer = null;
  var m5SequenceLocked = false;
  var m5StageTransitioning = false;
+ var m5LastKickTime = 0;
+ var M5_KICK_DEBOUNCE_MS = 250; // minimum ms between registered kicks
  
  // Generates a random kick/rest pattern for a given level number.
  // Level N = N kicks + floor(N/2) rest beats, matching your spec:
@@ -1931,12 +1934,13 @@ function m5HighlightPreviewSlot(index, slotType) {
 
 function startM5PlayPhase() {
   m5SlotIndex = 0;
-  m5SequenceLocked = false;
+  m5SequenceLocked = true; // lock during kick-set count-in - unlocked only when count-in completes
   m5ShowFeedback('Your turn!', '#5C7A66');
   m5DrawPlayCanvas(); // show the full pattern ready while count-in plays
 
   runM5CountIn(() => {
     // count-in done - kick set is now live
+    m5SequenceLocked = false; // unlock now that count-in is finished
     m5Running = true;
     advancePastRests(); // handle any rest at the very start of the pattern
   });
@@ -1980,6 +1984,13 @@ function m5RegisterKick() {
   if (!m5Running || m5InPreview || m5SequenceLocked) return;
   if (m5SlotIndex >= m5Pattern.length) return;
 
+  // Debounce: ignore kicks arriving faster than one physical kick
+  // can realistically happen - prevents double-registration from
+  // sensor noise, spamming, or two rapid key presses.
+  const now = Date.now();
+  if (now - m5LastKickTime < M5_KICK_DEBOUNCE_MS) return;
+  m5LastKickTime = now;
+
   // If a rest's auto-advance is still pending, cancel it - this kick
   // is taking over the advancement now, since it arrived before the
   // rest's own timer fired.
@@ -1988,7 +1999,6 @@ function m5RegisterKick() {
     m5RestTimer = null;
   }
 
-  const now = Date.now();
   m5KickTimes.push(now);
   playM5PreviewTick();
 
@@ -2085,6 +2095,11 @@ function scoreM5Fluidity() {
    if (m5StageTransitioning) return; // prevents double-fire from competing timeouts
    m5StageTransitioning = true;
    m5Stage++;
+   // Hard clamp - should never exceed M5_STAGES_PER_LEVEL but guards
+   // against any residual double-fire that slips through
+   if (m5Stage > M5_STAGES_PER_LEVEL) {
+     m5Stage = M5_STAGES_PER_LEVEL;
+   }
    if (m5Stage >= M5_STAGES_PER_LEVEL) {
      advanceM5Level();
      return;
