@@ -1882,6 +1882,10 @@ function runM5Preview() {
       if (m5PreviewIndex >= m5Pattern.length) {
         clearTimeout(m5PreviewTimer);
         m5InPreview = false;
+        m5SequenceLocked = true; // lock immediately - prevents kicks during
+                                 // the 600ms gap between preview end and
+                                 // kick-set count-in starting. startM5PlayPhase
+                                 // will reset this via its own count-in logic.
         setTimeout(startM5PlayPhase, 600);
         return;
       }
@@ -1960,8 +1964,9 @@ function advancePastRests() {
 
       if (m5SlotIndex >= m5Pattern.length) {
         m5SequenceLocked = true;
+        m5Running = false; // kick set over (ended on rest)
         m5DrawPlayCanvas();
-        setTimeout(() => { if (m5Running) finishM5Stage(); }, 400);
+        setTimeout(() => { finishM5Stage(); }, 400);
         return;
       }
 
@@ -2027,8 +2032,10 @@ function m5RegisterKick() {
 
   if (m5SlotIndex >= m5Pattern.length) {
     m5SequenceLocked = true;
+    m5Running = false; // kick set is over - prevent any further kick processing
+                       // until the next kick set's count-in sets it true again
     m5DrawPlayCanvas();
-    setTimeout(() => { if (m5Running) finishM5Stage(); }, 400);
+    setTimeout(() => { finishM5Stage(); }, 400);
     return;
   }
 
@@ -2063,8 +2070,9 @@ function scoreM5Fluidity() {
     // which correctly handles both stage increment and level advancement.
     // Do NOT call advanceM5Level() directly here - it bypasses the stage
     // counter and causes stage display to stay stuck at 1/5.
-    m5SequenceLocked = true; // prevent any more kicks during the transition
-    setTimeout(() => { if (m5Running) finishM5Stage(); }, 300);
+    m5SequenceLocked = true;
+    m5Running = false; // kick set over (monster defeated)
+    setTimeout(() => { finishM5Stage(); }, 300);
   }
 }
  
@@ -2102,15 +2110,14 @@ function scoreM5Fluidity() {
    m5Stage++;
    if (m5Stage >= M5_STAGES_PER_LEVEL) {
      // completed all stages in this level - advance to next level
-     // note: m5StageTransitioning stays true here, loadM5Stage() resets it
      m5Stage = 0;
      m5Level++;
      m5MonsterHP = 100;
      updateM5HUD();
-     if (m5Running) loadM5Stage();
+     loadM5Stage(); // always call - m5Running intentionally false here, loadM5Stage restarts it
      return;
    }
-   if (m5Running) loadM5Stage();
+   loadM5Stage(); // always call - m5Running intentionally false here
  }
  
  function advanceM5Level() {
