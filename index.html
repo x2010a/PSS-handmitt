@@ -1260,21 +1260,29 @@
   }
   
   function manualEndMode5() {
-    if (confirm("End session now and save results?")) {
-      if (!isEndingProcessed) {
-        isEndingProcessed = true;
-        m5Running = false;
-        clearTimeout(m5PreviewTimer);
-        clearTimeout(m5CountInTimer);
-        cancelAnimationFrame(m5AnimFrame);
-        if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
-        saveM5History(true);
-        currentModeName = "";
-        isRoundActive = false;
-        showScreen('scr-menu');
-      }
+  if (confirm("End session now and save results?")) {
+    if (!isEndingProcessed) {
+      isEndingProcessed = true;
+      m5Running = false;
+      m5InPreview = false;
+      m5SequenceLocked = true;
+      clearTimeout(m5PreviewTimer);
+      clearTimeout(m5CountInTimer);
+      clearTimeout(m5RestTimer);   // ADD - was missing, caused background sounds
+      cancelAnimationFrame(m5AnimFrame);
+      // Stop any audio that's currently playing
+      ['m5-kick-cue-player','m5-rest-cue-player','m5-count-beat1-player','m5-count-beat2-player'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.pause(); el.currentTime = 0; }
+      });
+      if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
+      saveM5History(true);
+      currentModeName = "";
+      isRoundActive = false;
+      showScreen('scr-menu');
     }
   }
+}
 
  function playM5RestTick() {
     const player = document.getElementById('m5-rest-cue-player');
@@ -1369,7 +1377,7 @@
     if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
     clearInterval(countdownTimer); clearInterval(tankInterval);
     if (m5Running) { m5Running = false; cancelAnimationFrame(m5AnimFrame); }
-    m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer);
+    m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer);clearTimeout(m5RestTimer);
     currentModeName = ""; isRoundActive = false; isEndingProcessed = false;
     document.getElementById('modal-over').style.display = "none";
     showScreen(targetScreen);
@@ -2175,7 +2183,7 @@ function scoreM5Fluidity() {
       websocket.close();
    }
    if (m5Running) { m5Running = false; cancelAnimationFrame(m5AnimFrame); }
-   m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer);
+   m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer); clearTimeout(m5RestTimer);
   });
 
   window.onload = () => {
