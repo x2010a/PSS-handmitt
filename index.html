@@ -525,7 +525,7 @@
   
     <input type="number" id="m5-start-level" placeholder="Start at Level (e.g. 1)" min="1" value="1">
     <small style="color: var(--text-dim); display:block; margin-top:-6px; margin-bottom:10px;">
-      Level = number of kicks per combo (min. Level 2 = 2 kicks + 1 rest beat)
+      Start at Level 1 for a tutorial (no scoring) or Level 2+ to begin scoring. Level = number of kicks per combo.
     </small>
   
     <button onclick="startMode5()">START</button>
@@ -1207,7 +1207,7 @@
 
  function startMode5() {
    const levelInput = parseInt(document.getElementById('m5-start-level').value) || 1;
-   m5Level = Math.max(2, levelInput);
+   m5Level = Math.max(1, levelInput);
    m5Stage = 0;
    m5Score = 0;
    m5MonsterHP = 100;
@@ -2049,13 +2049,16 @@ function m5RegisterKick() {
 }
  
 function scoreM5Fluidity() {
-  if (m5GapHistory.length < 1) return; // only need 1 gap - score each kick independently
+  if (m5GapHistory.length < 1) return;
 
   const latestGap = m5GapHistory[m5GapHistory.length - 1];
-  // Score how close this gap is to the guide tempo rather than a
-  // rolling self-average. This fires from the very second kick onward,
-  // and rewards staying close to the suggested beat pace.
   const deviation = Math.abs(latestGap - m5GuideTempoMs) / m5GuideTempoMs;
+
+  // Level 1 is a demo - no HP damage, just show feedback
+  if (m5Level === 1) {
+    m5ShowFeedback('Keep going!', '#5C7A66');
+    return;
+  }
 
   let damage;
   if (deviation < 0.15) {
@@ -2069,15 +2072,10 @@ function scoreM5Fluidity() {
   m5MonsterHP = Math.max(0, m5MonsterHP - damage);
   m5Score += damage;
   updateM5HUD();
-  console.log('[M5] gap:', latestGap, 'target:', m5GuideTempoMs, 'dev:', deviation.toFixed(2), 'damage:', damage, 'HP:', m5MonsterHP);
 
   if (m5MonsterHP <= 0) {
-    // Monster defeated - end the current stage early via finishM5Stage()
-    // which correctly handles both stage increment and level advancement.
-    // Do NOT call advanceM5Level() directly here - it bypasses the stage
-    // counter and causes stage display to stay stuck at 1/5.
     m5SequenceLocked = true;
-    m5Running = false; // kick set over (monster defeated)
+    m5Running = false;
     setTimeout(() => { finishM5Stage(); }, 300);
   }
 }
