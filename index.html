@@ -1237,6 +1237,8 @@
   m5LastKickTime = 0;
   m5StageMistakes = false;  // reset per-stage flag, streak carries over
   m5Slots = [];
+  clearTimeout(m5KickTimeoutTimer);
+  m5KickTimeoutTimer = null;
 
   runM5Preview();
 }
@@ -1273,6 +1275,7 @@
       clearTimeout(m5CountInTimer);
       clearTimeout(m5RestTimer);   // ADD - was missing, caused background sounds
       cancelAnimationFrame(m5AnimFrame);
+      clearTimeout(m5KickTimeoutTimer);
       // Stop any audio that's currently playing
       ['m5-kick-cue-player','m5-rest-cue-player','m5-count-beat1-player','m5-count-beat2-player'].forEach(id => {
         const el = document.getElementById(id);
@@ -1380,7 +1383,7 @@
     if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
     clearInterval(countdownTimer); clearInterval(tankInterval);
     if (m5Running) { m5Running = false; cancelAnimationFrame(m5AnimFrame); }
-    m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer);clearTimeout(m5RestTimer);
+    m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer);clearTimeout(m5RestTimer);clearTimeout(m5KickTimeoutTimer);
     currentModeName = ""; isRoundActive = false; isEndingProcessed = false;
     document.getElementById('modal-over').style.display = "none";
     showScreen(targetScreen);
@@ -1810,6 +1813,7 @@
  var m5ConsecutiveMistakes = 0;
  var M5_MAX_MISTAKES = 3;
  var m5StageMistakes = false;
+ var m5KickTimeoutTimer = null;
  
  // Generates a random kick/rest pattern for a given level number.
  // Level N = N kicks + floor(N/2) rest beats, matching your spec:
@@ -1860,6 +1864,28 @@ function playM5PreviewTick() {
     player.currentTime = 0;
     player.play();
   }
+}
+
+function m5StartKickTimeout() {
+  clearTimeout(m5KickTimeoutTimer);
+  m5KickTimeoutTimer = setTimeout(() => {
+    if (!m5Running || m5SequenceLocked) return;
+    // Kicker missed this beat - flag as mistake and advance
+    m5StageMistakes = true;
+    m5ShowFeedback('Missed!', '#C77B5C');
+    playM5RestTick(); // audible missed-beat cue
+    m5SlotIndex++;
+    if (m5SlotIndex >= m5Pattern.length) {
+      m5SequenceLocked = true;
+      m5Running = false;
+      setM5PhaseLabel('off');
+      m5SetLEDs('0000000000');
+      m5DrawPlayCanvas();
+      setTimeout(() => { finishM5Stage(); }, 400);
+      return;
+    }
+    advancePastRests();
+  }, m5GuideTempoMs);
 }
 
 
@@ -1993,6 +2019,10 @@ function advancePastRests() {
 
       advancePastRests();
     }, m5GuideTempoMs);
+  } else {
+    // Current slot is a kick slot - start the timeout
+    // If kicker doesn't kick within one beat, auto-advance
+    m5StartKickTimeout();
   }
 }
 
@@ -2012,36 +2042,36 @@ function m5RegisterKick() {
 
   const now = Date.now();
   if (now - m5LastKickTime < M5_KICK_DEBOUNCE_MS) return;
-  m5LastKickTime = now;
-
-  // If current slot is a rest, this kick is a MISTAKE -
-  // kicker jumped the gun before the rest beat completed.
-  // Do NOT cancel the rest timer, do NOT advance the index.
-  // The rest still completes on its own via advancePastRests().
-  if (m5Pattern[m5SlotIndex] === 'R') {
-  m5StageMistakes = true; // flag this stage as having a mistake
-  m5Score = Math.max(0, m5Score - 10);
-  m5ShowFeedback('Wrong beat!', '#C77B5C');
-  playM5RestTick();
-  updateM5HUD();
-
-  clearTimeout(m5RestTimer);
-  m5RestTimer = setTimeout(() => {
-    m5SlotIndex++;
-    m5RestsSkippedSinceLastKick++;
-    if (m5SlotIndex >= m5Pattern.length) {
-      m5SequenceLocked = true;
-      m5Running = false;
-      m5DrawPlayCanvas();
-      setTimeout(() => { finishM5Stage(); }, 400);
-      return;
-    }
-    advancePastRests();
-  }, m5GuideTempoMs);
-
-  return;
-}
-
+    m5LastKickTime = now;
+  
+    // If current slot is a rest, this kick is a MISTAKE -
+    // kicker jumped the gun before the rest beat completed.
+    // Do NOT cancel the rest timer, do NOT advance the index.
+    // The rest still completes on its own via advancePastRests().
+    if (m5Pattern[m5SlotIndex] === 'R') {
+    m5StageMistakes = true; // flag this stage as having a mistake
+    m5Score = Math.max(0, m5Score - 10);
+    m5ShowFeedback('Wrong beat!', '#C77B5C');
+    playM5RestTick();
+    updateM5HUD();
+  
+    clearTimeout(m5RestTimer);
+    m5RestTimer = setTimeout(() => {
+      m5SlotIndex++;
+      m5RestsSkippedSinceLastKick++;
+      if (m5SlotIndex >= m5Pattern.length) {
+        m5SequenceLocked = true;
+        m5Running = false;
+        m5DrawPlayCanvas();
+        setTimeout(() => { finishM5Stage(); }, 400);
+        return;
+      }
+      advancePastRests();
+    }, m5GuideTempoMs);
+  
+    return;
+  }
+  clearTimeout(m5KickTimeoutTimer);
   // Cancel any pending rest timer - this kick arrived cleanly
   // on a kick slot so no rest was pending anyway, but guard it
   if (m5RestTimer) {
@@ -2254,7 +2284,7 @@ function scoreM5Fluidity() {
       websocket.close();
    }
    if (m5Running) { m5Running = false; cancelAnimationFrame(m5AnimFrame); }
-   m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer); clearTimeout(m5RestTimer);
+   m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer); clearTimeout(m5RestTimer);clearTimeout(m5KickTimeoutTimer);
   });
 
   window.onload = () => {
