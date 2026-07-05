@@ -2134,12 +2134,15 @@ function scoreM5Fluidity() {
   if (m5StageTransitioning) return;
   m5StageTransitioning = true;
 
+  // Capture immediately before anything can reset it
+  const hadMistake = m5StageMistakes;
+  
   // Update consecutive mistake streak based on whether this stage had a mistake
-  if (m5StageMistakes) {
+  if (hadMistake) {
     m5ConsecutiveMistakes++;
     m5ShowFeedback('Mistake ' + m5ConsecutiveMistakes + '/' + M5_MAX_MISTAKES, '#C77B5C');
   } else {
-    m5ConsecutiveMistakes = 0; // clean stage resets the streak
+    m5ConsecutiveMistakes = 0;
   }
 
   // Check game over BEFORE advancing stage
