@@ -2062,30 +2062,23 @@ function scoreM5Fluidity() {
   const latestGap = m5GapHistory[m5GapHistory.length - 1];
   const deviation = Math.abs(latestGap - m5GuideTempoMs) / m5GuideTempoMs;
 
-  // Level 1 is a demo - no HP damage, just show feedback
+  // Show per-kick feedback only - no HP damage here anymore.
+  // HP damage is dealt once per stage in finishM5Stage() based
+  // on the overall fluidity of the whole stage.
   if (m5Level === 1) {
     m5ShowFeedback('Keep going!', '#5C7A66');
     return;
   }
 
-  let damage;
   if (deviation < 0.15) {
-    damage = 20; m5ShowFeedback('Smooth!', '#5C7A66');
+    m5ShowFeedback('Smooth!', '#5C7A66');
   } else if (deviation < 0.35) {
-    damage = 10; m5ShowFeedback('OK', '#D9A23B');
+    m5ShowFeedback('OK', '#D9A23B');
   } else {
-    damage = 3; m5ShowFeedback('Jerky', '#C77B5C');
+    m5ShowFeedback('Jerky', '#C77B5C');
   }
-
-  m5MonsterHP = Math.max(0, m5MonsterHP - damage);
-  m5Score += damage;
-  updateM5HUD();
-
-  if (m5MonsterHP <= 0) {
-    m5SequenceLocked = true;
-    m5Running = false;
-    setTimeout(() => { finishM5Stage(); }, 300);
-  }
+  // Store deviation for end-of-stage scoring
+  // m5GapHistory already holds the gaps - finishM5Stage will compute from those
 }
  
   document.addEventListener('keydown', function(e) {
@@ -2117,20 +2110,52 @@ function scoreM5Fluidity() {
  }
  
  function finishM5Stage() {
-   if (m5StageTransitioning) return; // prevents double-fire from competing timeouts
+   if (m5StageTransitioning) return;
    m5StageTransitioning = true;
+ 
+   // Score the whole stage as one HP damage event.
+   // Average the deviation across all gaps in this stage,
+   // then deal damage based on overall fluidity quality.
+   if (m5Level > 1 && m5GapHistory.length > 0) {
+     const avgDeviation = m5GapHistory.reduce((sum, gap) => {
+       return sum + Math.abs(gap - m5GuideTempoMs) / m5GuideTempoMs;
+     }, 0) / m5GapHistory.length;
+ 
+     let damage;
+     if (avgDeviation < 0.15) {
+       damage = 30; // Smooth stage
+     } else if (avgDeviation < 0.35) {
+       damage = 15; // OK stage
+     } else {
+       damage = 5;  // Jerky stage
+     }
+ 
+     m5MonsterHP = Math.max(0, m5MonsterHP - damage);
+     m5Score += damage;
+     updateM5HUD();
+ 
+     if (m5MonsterHP <= 0) {
+       // Monster defeated - advance level
+       m5Stage = 0;
+       m5Level++;
+       m5MonsterHP = 100;
+       updateM5HUD();
+       loadM5Stage();
+       return;
+     }
+   }
+ 
    m5Stage++;
    if (m5Stage >= M5_STAGES_PER_LEVEL) {
-     // completed all stages in this level - advance to next level
      m5Stage = 0;
      m5Level++;
      m5MonsterHP = 100;
      updateM5HUD();
-     loadM5Stage(); // always call - m5Running intentionally false here, loadM5Stage restarts it
+     loadM5Stage();
      return;
    }
    updateM5HUD();
-   loadM5Stage(); // always call - m5Running intentionally false here
+   loadM5Stage();
  }
  
  function advanceM5Level() {
