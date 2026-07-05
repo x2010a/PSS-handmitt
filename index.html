@@ -1227,19 +1227,19 @@
  }
  
  function loadM5Stage() {
-   m5StageTransitioning = false;
-   m5Pattern = generateM5Pattern(m5Level);
-   m5SlotIndex = 0;
-   m5KickTimes = [];
-   m5GapHistory = [];
-   m5RestsSkippedSinceLastKick = 0;
-   m5SequenceLocked = false;
-   m5LastKickTime = 0;
-   m5StageMistakes = false;
-   m5Slots = [];
- 
-   runM5Preview();
- }
+  m5StageTransitioning = false;
+  m5Pattern = generateM5Pattern(m5Level);
+  m5SlotIndex = 0;
+  m5KickTimes = [];
+  m5GapHistory = [];
+  m5RestsSkippedSinceLastKick = 0;
+  m5SequenceLocked = false;
+  m5LastKickTime = 0;
+  m5StageMistakes = false;  // reset per-stage flag, streak carries over
+  m5Slots = [];
+
+  runM5Preview();
+}
 
  function saveM5History(premature) {
     const profileSelect = document.querySelector('#scr-settings-m5 .p-select');
@@ -2019,45 +2019,28 @@ function m5RegisterKick() {
   // Do NOT cancel the rest timer, do NOT advance the index.
   // The rest still completes on its own via advancePastRests().
   if (m5Pattern[m5SlotIndex] === 'R') {
-    m5ConsecutiveMistakes++;
-    m5StageMistakes = true;
-    m5Score = Math.max(0, m5Score - 10);
-    m5ShowFeedback('Wrong beat! (' + m5ConsecutiveMistakes + '/' + M5_MAX_MISTAKES + ')', '#C77B5C');
-    playM5RestTick();
-    updateM5HUD();
-  
-    if (m5ConsecutiveMistakes >= M5_MAX_MISTAKES) {
+  m5StageMistakes = true; // flag this stage as having a mistake
+  m5Score = Math.max(0, m5Score - 10);
+  m5ShowFeedback('Wrong beat!', '#C77B5C');
+  playM5RestTick();
+  updateM5HUD();
+
+  clearTimeout(m5RestTimer);
+  m5RestTimer = setTimeout(() => {
+    m5SlotIndex++;
+    m5RestsSkippedSinceLastKick++;
+    if (m5SlotIndex >= m5Pattern.length) {
       m5SequenceLocked = true;
       m5Running = false;
-      clearTimeout(m5RestTimer);
-      clearTimeout(m5PreviewTimer);
-      clearTimeout(m5CountInTimer);
-      m5ShowFeedback('GAME OVER', '#C77B5C');
-      setTimeout(() => {
-        saveM5History(true);
-        currentModeName = "";
-        isRoundActive = false;
-        showScreen('scr-menu');
-      }, 1500);
+      m5DrawPlayCanvas();
+      setTimeout(() => { finishM5Stage(); }, 400);
       return;
     }
-  
-    clearTimeout(m5RestTimer);
-    m5RestTimer = setTimeout(() => {
-      m5SlotIndex++;
-      m5RestsSkippedSinceLastKick++;
-      if (m5SlotIndex >= m5Pattern.length) {
-        m5SequenceLocked = true;
-        m5Running = false;
-        m5DrawPlayCanvas();
-        setTimeout(() => { finishM5Stage(); }, 400);
-        return;
-      }
-      advancePastRests();
-    }, m5GuideTempoMs);
-  
-    return;
-  }
+    advancePastRests();
+  }, m5GuideTempoMs);
+
+  return;
+}
 
   // Valid kick on a kick slot - reset mistake streak
   m5ConsecutiveMistakes = 0;
@@ -2151,56 +2134,75 @@ function scoreM5Fluidity() {
  }
  
  function finishM5Stage() {
-   if (m5StageTransitioning) return;
-   m5StageTransitioning = true;
- 
-   // Only reset consecutive mistake counter if this stage was clean.
-   // If the stage had mistakes, the streak carries forward.
-   if (!m5StageMistakes) {
-     m5ConsecutiveMistakes = 0;
-   }
-   m5StageMistakes = false;
- 
-   if (m5Level > 1 && m5GapHistory.length > 0) {
-     const avgDeviation = m5GapHistory.reduce((sum, gap) => {
-       return sum + Math.abs(gap - m5GuideTempoMs) / m5GuideTempoMs;
-     }, 0) / m5GapHistory.length;
- 
-     let damage;
-     if (avgDeviation < 0.15) {
-       damage = 30;
-     } else if (avgDeviation < 0.35) {
-       damage = 15;
-     } else {
-       damage = 5;
-     }
- 
-     m5MonsterHP = Math.max(0, m5MonsterHP - damage);
-     m5Score += damage;
-     updateM5HUD();
- 
-     if (m5MonsterHP <= 0) {
-       m5Stage = 0;
-       m5Level++;
-       m5MonsterHP = 100;
-       updateM5HUD();
-       loadM5Stage();
-       return;
-     }
-   }
- 
-   m5Stage++;
-   if (m5Stage >= M5_STAGES_PER_LEVEL) {
-     m5Stage = 0;
-     m5Level++;
-     m5MonsterHP = 100;
-     updateM5HUD();
-     loadM5Stage();
-     return;
-   }
-   updateM5HUD();
-   loadM5Stage();
- }
+  if (m5StageTransitioning) return;
+  m5StageTransitioning = true;
+
+  // Update consecutive mistake streak based on whether this stage had a mistake
+  if (m5StageMistakes) {
+    m5ConsecutiveMistakes++;
+    m5ShowFeedback('Mistake ' + m5ConsecutiveMistakes + '/' + M5_MAX_MISTAKES, '#C77B5C');
+  } else {
+    m5ConsecutiveMistakes = 0; // clean stage resets the streak
+  }
+
+  // Check game over BEFORE advancing stage
+  if (m5ConsecutiveMistakes >= M5_MAX_MISTAKES) {
+    m5SequenceLocked = true;
+    m5Running = false;
+    clearTimeout(m5RestTimer);
+    clearTimeout(m5PreviewTimer);
+    clearTimeout(m5CountInTimer);
+    m5ShowFeedback('GAME OVER', '#C77B5C');
+    setTimeout(() => {
+      saveM5History(true);
+      currentModeName = "";
+      isRoundActive = false;
+      showScreen('scr-menu');
+    }, 1500);
+    return;
+  }
+
+  // Score this stage
+  if (m5Level > 1 && m5GapHistory.length > 0) {
+    const avgDeviation = m5GapHistory.reduce((sum, gap) => {
+      return sum + Math.abs(gap - m5GuideTempoMs) / m5GuideTempoMs;
+    }, 0) / m5GapHistory.length;
+
+    let damage;
+    if (avgDeviation < 0.15) {
+      damage = 30;
+    } else if (avgDeviation < 0.35) {
+      damage = 15;
+    } else {
+      damage = 5;
+    }
+
+    m5MonsterHP = Math.max(0, m5MonsterHP - damage);
+    m5Score += damage;
+    updateM5HUD();
+
+    if (m5MonsterHP <= 0) {
+      m5Stage = 0;
+      m5Level++;
+      m5MonsterHP = 100;
+      updateM5HUD();
+      loadM5Stage();
+      return;
+    }
+  }
+
+  m5Stage++;
+  if (m5Stage >= M5_STAGES_PER_LEVEL) {
+    m5Stage = 0;
+    m5Level++;
+    m5MonsterHP = 100;
+    updateM5HUD();
+    loadM5Stage();
+    return;
+  }
+  updateM5HUD();
+  loadM5Stage();
+}
  
  function advanceM5Level() {
    // kept for any future direct calls, but level advancement is now
