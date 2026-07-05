@@ -1225,6 +1225,7 @@
  }
  
  function loadM5Stage() {
+  m5ConsecutiveMistakes = 0;
   m5StageTransitioning = false; // unlock - new stage is actually starting now
   m5Pattern = generateM5Pattern(m5Level);
   m5SlotIndex = 0;
@@ -1804,6 +1805,8 @@
  var m5StageTransitioning = false;
  var m5LastKickTime = 0;
  var M5_KICK_DEBOUNCE_MS = 250; // minimum ms between registered kicks
+ var m5ConsecutiveMistakes = 0;
+ var M5_MAX_MISTAKES = 3;
  
  // Generates a random kick/rest pattern for a given level number.
  // Level N = N kicks + floor(N/2) rest beats, matching your spec:
@@ -2003,16 +2006,44 @@ function m5RegisterKick() {
   if (!m5Running || m5InPreview || m5SequenceLocked) return;
   if (m5SlotIndex >= m5Pattern.length) return;
 
-  // Debounce: ignore kicks arriving faster than one physical kick
-  // can realistically happen - prevents double-registration from
-  // sensor noise, spamming, or two rapid key presses.
   const now = Date.now();
   if (now - m5LastKickTime < M5_KICK_DEBOUNCE_MS) return;
   m5LastKickTime = now;
 
-  // If a rest's auto-advance is still pending, cancel it - this kick
-  // is taking over the advancement now, since it arrived before the
-  // rest's own timer fired.
+  // If current slot is a rest, this kick is a MISTAKE -
+  // kicker jumped the gun before the rest beat completed.
+  // Do NOT cancel the rest timer, do NOT advance the index.
+  // The rest still completes on its own via advancePastRests().
+  if (m5Pattern[m5SlotIndex] === 'R') {
+    m5ConsecutiveMistakes++;
+    m5Score = Math.max(0, m5Score - 10);
+    m5ShowFeedback('Wrong beat! (' + m5ConsecutiveMistakes + '/' + M5_MAX_MISTAKES + ')', '#C77B5C');
+    playM5RestTick();
+    updateM5HUD();
+    console.log('[M5] Mistake during rest, consecutive:', m5ConsecutiveMistakes);
+
+    if (m5ConsecutiveMistakes >= M5_MAX_MISTAKES) {
+      m5SequenceLocked = true;
+      m5Running = false;
+      clearTimeout(m5RestTimer);
+      clearTimeout(m5PreviewTimer);
+      clearTimeout(m5CountInTimer);
+      m5ShowFeedback('GAME OVER', '#C77B5C');
+      setTimeout(() => {
+        saveM5History(true);
+        currentModeName = "";
+        isRoundActive = false;
+        showScreen('scr-menu');
+      }, 1500);
+    }
+    return;
+  }
+
+  // Valid kick on a kick slot - reset mistake streak
+  m5ConsecutiveMistakes = 0;
+
+  // Cancel any pending rest timer - this kick arrived cleanly
+  // on a kick slot so no rest was pending anyway, but guard it
   if (m5RestTimer) {
     clearTimeout(m5RestTimer);
     m5RestTimer = null;
@@ -2020,15 +2051,6 @@ function m5RegisterKick() {
 
   m5KickTimes.push(now);
   playM5PreviewTick();
-
-  // If we're currently sitting on a rest slot when this kick arrives,
-  // count it as having skipped that rest (the kick itself proves
-  // enough time passed), then proceed exactly like a normal kick on
-  // whatever slot comes next.
-  while (m5SlotIndex < m5Pattern.length && m5Pattern[m5SlotIndex] === 'R') {
-    m5SlotIndex++;
-    m5RestsSkippedSinceLastKick++;
-  }
 
   if (m5KickTimes.length > 1) {
     const gap = now - m5KickTimes[m5KickTimes.length - 2];
@@ -2046,8 +2068,7 @@ function m5RegisterKick() {
 
   if (m5SlotIndex >= m5Pattern.length) {
     m5SequenceLocked = true;
-    m5Running = false; // kick set is over - prevent any further kick processing
-                       // until the next kick set's count-in sets it true again
+    m5Running = false;
     m5DrawPlayCanvas();
     setTimeout(() => { finishM5Stage(); }, 400);
     return;
