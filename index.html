@@ -2016,29 +2016,48 @@ function m5RegisterKick() {
   // Do NOT cancel the rest timer, do NOT advance the index.
   // The rest still completes on its own via advancePastRests().
   if (m5Pattern[m5SlotIndex] === 'R') {
-    m5ConsecutiveMistakes++;
-    m5Score = Math.max(0, m5Score - 10);
-    m5ShowFeedback('Wrong beat! (' + m5ConsecutiveMistakes + '/' + M5_MAX_MISTAKES + ')', '#C77B5C');
-    playM5RestTick();
-    updateM5HUD();
-    console.log('[M5] Mistake during rest, consecutive:', m5ConsecutiveMistakes);
+  m5ConsecutiveMistakes++;
+  m5Score = Math.max(0, m5Score - 10);
+  m5ShowFeedback('Wrong beat! (' + m5ConsecutiveMistakes + '/' + M5_MAX_MISTAKES + ')', '#C77B5C');
+  playM5RestTick();
+  updateM5HUD();
 
-    if (m5ConsecutiveMistakes >= M5_MAX_MISTAKES) {
-      m5SequenceLocked = true;
-      m5Running = false;
-      clearTimeout(m5RestTimer);
-      clearTimeout(m5PreviewTimer);
-      clearTimeout(m5CountInTimer);
-      m5ShowFeedback('GAME OVER', '#C77B5C');
-      setTimeout(() => {
-        saveM5History(true);
-        currentModeName = "";
-        isRoundActive = false;
-        showScreen('scr-menu');
-      }, 1500);
-    }
+  if (m5ConsecutiveMistakes >= M5_MAX_MISTAKES) {
+    m5SequenceLocked = true;
+    m5Running = false;
+    clearTimeout(m5RestTimer);
+    clearTimeout(m5PreviewTimer);
+    clearTimeout(m5CountInTimer);
+    m5ShowFeedback('GAME OVER', '#C77B5C');
+    setTimeout(() => {
+      saveM5History(true);
+      currentModeName = "";
+      isRoundActive = false;
+      showScreen('scr-menu');
+    }, 1500);
     return;
   }
+
+  // Reset the rest timer so this slot stays as 'R' for another
+  // full beat - prevents the timer from firing and advancing the
+  // index before the kicker can make their next mistake on this
+  // same rest slot.
+  clearTimeout(m5RestTimer);
+  m5RestTimer = setTimeout(() => {
+    m5SlotIndex++;
+    m5RestsSkippedSinceLastKick++;
+    if (m5SlotIndex >= m5Pattern.length) {
+      m5SequenceLocked = true;
+      m5Running = false;
+      m5DrawPlayCanvas();
+      setTimeout(() => { finishM5Stage(); }, 400);
+      return;
+    }
+    advancePastRests();
+  }, m5GuideTempoMs);
+
+  return;
+}
 
   // Valid kick on a kick slot - reset mistake streak
   m5ConsecutiveMistakes = 0;
