@@ -589,17 +589,16 @@
       <div style="font-size:0.72rem; color:var(--text-dim); margin-top:4px;">MONSTER HP</div>
     </div>
   
+    <div id="m5-phase-label" style="text-align:center; margin:8px auto 4px; max-width:340px;">
+      <span id="m5-phase-text" style="font-family:'Georgia',serif; font-size:1rem; font-weight:700; padding:6px 20px; border-radius:20px; background:rgba(139,126,106,0.2); color:var(--text-dim);">—</span>
+    </div>
     <canvas id="m5-highway" width="300" height="400" style="display:block; margin:0 auto; border-radius:18px; background:#15140F;"></canvas>
   
     <div id="m5-feedback" style="text-align:center; height:32px; font-family:'Georgia',serif; font-size:1.3rem; font-weight:700; margin:6px 0; color:var(--sage);"></div>
   
-<button id="m5-kick-btn" onclick="m5RegisterKick()" style="background:var(--bg-card); border:2px solid var(--line); color:var(--text); font-size:1.2rem; padding:16px 0; margin-top:4px; width:90%;">
-  KICK &nbsp;[SPACE]
-</button>
-   
-   <button id="m5-kick-btn" style="background:var(--bg-card); border:2px solid var(--line); color:var(--text); font-size:1.2rem; padding:16px 0; margin-top:4px; width:90%;">
-      KICK &nbsp;[SPACE]
-    </button>
+ <button id="m5-kick-btn" onclick="m5RegisterKick()" style="background:var(--bg-card); border:2px solid var(--line); color:var(--text); font-size:1.2rem; padding:16px 0; margin-top:4px; width:90%;">
+   KICK &nbsp;[SPACE]
+ </button>
    
   </div>
  
@@ -1236,6 +1235,8 @@
   m5SequenceLocked = false;
   m5LastKickTime = 0;
   m5StageMistakes = false;  // reset per-stage flag, streak carries over
+  clearTimeout(m5KickTimeoutTimer);
+  m5KickTimeoutTimer = null;
   m5Slots = [];
   clearTimeout(m5KickTimeoutTimer);
   m5KickTimeoutTimer = null;
@@ -1273,7 +1274,8 @@
       m5SequenceLocked = true;
       clearTimeout(m5PreviewTimer);
       clearTimeout(m5CountInTimer);
-      clearTimeout(m5RestTimer);   // ADD - was missing, caused background sounds
+      clearTimeout(m5RestTimer);
+      clearTimeout(m5KickTimeoutTimer);   // ADD - was missing, caused background sounds
       cancelAnimationFrame(m5AnimFrame);
       clearTimeout(m5KickTimeoutTimer);
       // Stop any audio that's currently playing
@@ -1383,7 +1385,7 @@
     if (websocket && websocket.readyState === WebSocket.OPEN) websocket.send("STOP_GAME");
     clearInterval(countdownTimer); clearInterval(tankInterval);
     if (m5Running) { m5Running = false; cancelAnimationFrame(m5AnimFrame); }
-    m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer);clearTimeout(m5RestTimer);clearTimeout(m5KickTimeoutTimer);
+    m5InPreview = false; clearTimeout(m5PreviewTimer); clearTimeout(m5CountInTimer); clearTimeout(m5KickTimeoutTimer); clearTimeout(m5KickTimeoutTimer);clearTimeout(m5RestTimer);clearTimeout(m5KickTimeoutTimer);
     currentModeName = ""; isRoundActive = false; isEndingProcessed = false;
     document.getElementById('modal-over').style.display = "none";
     showScreen(targetScreen);
@@ -1808,6 +1810,7 @@
  var m5CountInTimer = null;
  var m5SequenceLocked = false;
  var m5StageTransitioning = false;
+ var m5KickTimeoutTimer = null;
  var m5LastKickTime = 0;
  var M5_KICK_DEBOUNCE_MS = 250; // minimum ms between registered kicks
  var m5ConsecutiveMistakes = 0;
@@ -1913,10 +1916,36 @@ function runM5CountIn(callback) {
   tick();
 }
 
+function setM5PhaseLabel(phase) {
+  const el = document.getElementById('m5-phase-text');
+  if (!el) return;
+  if (phase === 'preview') {
+    el.textContent = '👀 WATCH';
+    el.style.background = 'rgba(181,101,29,0.2)';
+    el.style.color = '#D9A23B';
+  } else if (phase === 'kick') {
+    el.textContent = '🥊 KICK!';
+    el.style.background = 'rgba(92,122,102,0.25)';
+    el.style.color = '#5C7A66';
+  } else {
+    el.textContent = '—';
+    el.style.background = 'rgba(139,126,106,0.1)';
+    el.style.color = 'var(--text-dim)';
+  }
+}
+
+function m5SetLEDs(pattern) {
+  if (websocket && websocket.readyState === WebSocket.OPEN) {
+    websocket.send('LED_STATE|' + pattern);
+  }
+}
+
 function runM5Preview() {
   m5InPreview = true;
   m5PreviewIndex = 0;
   m5SequenceLocked = false;
+  setM5PhaseLabel('preview');
+  m5SetLEDs('0000000000');
   m5ShowFeedback('Get ready...', '#8B7E6A');
   m5DrawPreviewCanvas(); // show the full pattern layout while count-in plays
 
@@ -1984,7 +2013,9 @@ function m5HighlightPreviewSlot(index, slotType) {
 
 function startM5PlayPhase() {
   m5SlotIndex = 0;
-  m5SequenceLocked = true; // lock during kick-set count-in - unlocked only when count-in completes
+  m5SequenceLocked = true;
+  setM5PhaseLabel('kick');
+  m5SetLEDs('5555555555');
   m5ShowFeedback('Your turn!', '#5C7A66');
   m5DrawPlayCanvas(); // show the full pattern ready while count-in plays
 
@@ -1997,7 +2028,6 @@ function startM5PlayPhase() {
 }
 
 function advancePastRests() {
- console.log('[M5 KICK CHECK] slotIndex:', m5SlotIndex, 'pattern:', m5Pattern, 'slot value:', m5Pattern[m5SlotIndex]);
   m5DrawPlayCanvas();
 
   if (m5SlotIndex < m5Pattern.length && m5Pattern[m5SlotIndex] === 'R') {
@@ -2011,7 +2041,9 @@ function advancePastRests() {
 
       if (m5SlotIndex >= m5Pattern.length) {
         m5SequenceLocked = true;
-        m5Running = false; // kick set over (ended on rest)
+        m5Running = false;
+        setM5PhaseLabel('off');
+        m5SetLEDs('0000000000');
         m5DrawPlayCanvas();
         setTimeout(() => { finishM5Stage(); }, 400);
         return;
@@ -2099,6 +2131,8 @@ function m5RegisterKick() {
   if (m5SlotIndex >= m5Pattern.length) {
     m5SequenceLocked = true;
     m5Running = false;
+    setM5PhaseLabel('off');
+    m5SetLEDs('0000000000');
     m5DrawPlayCanvas();
     setTimeout(() => { finishM5Stage(); }, 400);
     return;
@@ -2182,6 +2216,8 @@ function scoreM5Fluidity() {
     clearTimeout(m5RestTimer);
     clearTimeout(m5PreviewTimer);
     clearTimeout(m5CountInTimer);
+    setM5PhaseLabel('off');
+    m5SetLEDs('0000000000');
     m5ShowFeedback('GAME OVER', '#C77B5C');
     setTimeout(() => {
       saveM5History(true);
