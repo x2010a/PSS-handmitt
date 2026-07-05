@@ -1968,6 +1968,7 @@ function startM5PlayPhase() {
 }
 
 function advancePastRests() {
+ console.log('[M5 KICK CHECK] slotIndex:', m5SlotIndex, 'pattern:', m5Pattern, 'slot value:', m5Pattern[m5SlotIndex]);
   m5DrawPlayCanvas();
 
   if (m5SlotIndex < m5Pattern.length && m5Pattern[m5SlotIndex] === 'R') {
