@@ -2042,9 +2042,6 @@ function m5RegisterKick() {
   return;
 }
 
-  // Valid kick on a kick slot - reset mistake streak
-  m5ConsecutiveMistakes = 0;
-
   // Cancel any pending rest timer - this kick arrived cleanly
   // on a kick slot so no rest was pending anyway, but guard it
   if (m5RestTimer) {
