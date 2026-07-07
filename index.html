@@ -1537,6 +1537,21 @@ function manualEndMode5() {
         hDiv.insertAdjacentHTML('beforeend', sessionHtml);
       });
     }
+    // Combo Flow high scores section
+    if (p.comboHighScores && p.comboHighScores.length > 0) {
+      hDiv.insertAdjacentHTML('beforeend', "<h3 style='color:var(--text); font-size:1rem; margin:16px 0 8px;'>Combo Flow History</h3>");
+      [...p.comboHighScores].reverse().forEach(s => {
+        const dnfLabel = s.dnf ? "<span style='color:#C77B5C; font-weight:bold;'> (DNF)</span>" : "";
+        const entry = `
+          <div class="stat-card" style="text-align:left; font-size:0.85rem; border-left:4px solid #7A5C8B;">
+            <span style="color:#7A5C8B; font-weight:bold;">[Combo Flow]</span>
+            <span style="color:var(--text);"> ${s.date}</span>${dnfLabel}<br>
+            Level: <strong>${s.levelReached}</strong> | Stage: <strong>${s.stageReached}/${5}</strong> | Score: <strong>${s.score}</strong>
+          </div>`;
+        hDiv.insertAdjacentHTML('beforeend', entry);
+      });
+    }
+
     showScreen('scr-profile-detail');
   }
 
