@@ -566,7 +566,6 @@
     <audio id="m5-rest-cue-player" preload="auto" src="audio/mode 5 no kick sound.mp3"></audio>
     <audio id="m5-count-beat1-player" preload="auto" src="audio/starting beat 1.mp3"></audio>
     <audio id="m5-count-beat2-player" preload="auto" src="audio/starting beat 2.mp3"></audio>
-    <audio id="m5-bgm-player" preload="auto" src="audio/Mode 5 BGM cropped.mp3" loop></audio>
     <div style="display:flex; justify-content:space-between; align-items:center; padding:0 6px; max-width:400px; margin:0 auto;">
       <div style="text-align:center;">
         <div id="m5-score" style="font-family:'Georgia',serif; font-size:1.7rem; font-weight:700; color:var(--sage);">0</div>
@@ -597,9 +596,13 @@
   
     <div id="m5-feedback" style="text-align:center; height:32px; font-family:'Georgia',serif; font-size:1.3rem; font-weight:700; margin:6px 0; color:var(--sage);"></div>
   
- <button id="m5-kick-btn" onclick="m5RegisterKick()" style="background:var(--bg-card); border:2px solid var(--line); color:var(--text); font-size:1.2rem; padding:16px 0; margin-top:4px; width:90%;">
-   KICK &nbsp;[SPACE]
- </button>
+<button id="m5-kick-btn" onclick="m5RegisterKick()" style="background:var(--bg-card); border:2px solid var(--line); color:var(--text); font-size:1.2rem; padding:16px 0; margin-top:4px; width:90%;">
+  KICK &nbsp;[SPACE]
+</button>
+   
+   <button id="m5-kick-btn" style="background:var(--bg-card); border:2px solid var(--line); color:var(--text); font-size:1.2rem; padding:16px 0; margin-top:4px; width:90%;">
+      KICK &nbsp;[SPACE]
+    </button>
    
   </div>
  
@@ -659,6 +662,14 @@
       <p id="modal-summary" style="white-space: pre-line;"></p>
       <button onclick="viewFullLog()">VIEW ALL KICKS</button>
       <button class="secondary" onclick="closeModal()">EXIT</button>
+    </div>
+  </div>
+
+  <div id="modal-m5-gameover" style="display:none; position:fixed; inset:0; background:rgba(20,18,15,0.93); z-index:1000; justify-content:center; align-items:center; flex-direction:column;">
+    <div class="stat-card" style="width:85%; max-width:360px; text-align:center;">
+      <div style="font-family:'Georgia',serif; font-size:2.2rem; font-weight:700; color:#C77B5C; margin-bottom:8px;">GAME OVER</div>
+      <div id="m5-gameover-detail" style="font-family:'Georgia',serif; font-size:1rem; color:var(--text-dim); margin:12px 0 20px; white-space:pre-line;"></div>
+      <button onclick="closeM5GameOver()">BACK TO MENU</button>
     </div>
   </div>
 
@@ -1220,10 +1231,7 @@
  
    m5Canvas = document.getElementById('m5-highway');
    m5Ctx = m5Canvas.getContext('2d');
-
-   const bgm = document.getElementById('m5-bgm-player');
-   if (bgm) { bgm.currentTime = 0; bgm.play(); }
-  
+ 
    showScreen('scr-game-m5');
    updateM5HUD();
    loadM5Stage();
@@ -1269,7 +1277,40 @@
     saveDB(db);
   }
   
-  function manualEndMode5() {
+  function showM5GameOver() {
+  // Save result as DNF before showing the modal
+  saveM5History(true);
+  currentModeName = "";
+  isRoundActive = false;
+
+  const modal = document.getElementById('modal-m5-gameover');
+  const detail = document.getElementById('m5-gameover-detail');
+  if (!modal || !detail) return;
+
+  const profileSelect = document.querySelector('#scr-settings-m5 .p-select');
+  const fighterName = profileSelect ? profileSelect.value : "Guest";
+
+    detail.innerHTML =
+    "<strong>" + (fighterName !== "Guest" ? fighterName + "</strong><br><br>" : "</strong>") +
+    "Level Reached: <strong>" + m5Level + "</strong><br>" +
+    "Stage Reached: <strong>" + m5Stage + "/" + M5_STAGES_PER_LEVEL + "</strong><br>" +
+    "Score: <strong>" + m5Score.toLocaleString() + "</strong>";
+
+  modal.style.display = "flex";
+}
+
+function closeM5GameOver() {
+  const modal = document.getElementById('modal-m5-gameover');
+  if (modal) modal.style.display = "none";
+
+  // Stop BGM
+  const bgm = document.getElementById('m5-bgm-player');
+  if (bgm) { bgm.pause(); bgm.currentTime = 0; }
+
+  showScreen('scr-menu');
+}
+
+function manualEndMode5() {
   if (confirm("End session now and save results?")) {
     if (!isEndingProcessed) {
       isEndingProcessed = true;
@@ -1282,8 +1323,6 @@
       clearTimeout(m5KickTimeoutTimer);   // ADD - was missing, caused background sounds
       cancelAnimationFrame(m5AnimFrame);
       clearTimeout(m5KickTimeoutTimer);
-      const bgm = document.getElementById('m5-bgm-player');
-      if (bgm) { bgm.pause(); bgm.currentTime = 0; }
       // Stop any audio that's currently playing
       ['m5-kick-cue-player','m5-rest-cue-player','m5-count-beat1-player','m5-count-beat2-player'].forEach(id => {
         const el = document.getElementById(id);
@@ -2226,11 +2265,8 @@ function scoreM5Fluidity() {
     m5SetLEDs('0000000000');
     m5ShowFeedback('GAME OVER', '#C77B5C');
     setTimeout(() => {
-      saveM5History(true);
-      currentModeName = "";
-      isRoundActive = false;
-      showScreen('scr-menu');
-    }, 1500);
+      showM5GameOver();
+    }, 800);
     return;
   }
 
