@@ -1263,6 +1263,7 @@
  function saveM5History(premature) {
     const profileSelect = document.querySelector('#scr-settings-m5 .p-select');
     const fighterName = profileSelect ? profileSelect.value : "Guest";
+    console.log('[M5 SAVE] fighterName:', fighterName, 'premature:', premature);
     if (!fighterName || fighterName === "Guest") return;
   
     const db = getDB();
