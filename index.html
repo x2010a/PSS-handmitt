@@ -1218,6 +1218,8 @@
   }
 
  function startMode5() {
+   const bgm = document.getElementById('m5-bgm-player');
+   if (bgm) { bgm.currentTime = 0; bgm.play(); }
    const levelInput = parseInt(document.getElementById('m5-start-level').value) || 1;
    m5Level = Math.max(1, levelInput);
    m5Stage = 0;
@@ -1229,8 +1231,7 @@
    isRoundActive = true;
    isEndingProcessed = false;
    isDNF = false;
-   const bgm = document.getElementById('m5-bgm-player');
-   if (bgm) { bgm.currentTime = 0; bgm.play(); }
+   
  
    m5Canvas = document.getElementById('m5-highway');
    m5Ctx = m5Canvas.getContext('2d');
