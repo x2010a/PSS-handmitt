@@ -562,6 +562,7 @@
   </div>
 
   <div id="scr-game-m5" class="screen">
+    <audio id="m5-bgm-player" preload="auto" src="audio/Mode 5 BGM cropped.mp3" loop></audio>
     <audio id="m5-kick-cue-player" preload="auto" src="audio/mode 5 kick sound.mp3"></audio>
     <audio id="m5-rest-cue-player" preload="auto" src="audio/mode 5 no kick sound.mp3"></audio>
     <audio id="m5-count-beat1-player" preload="auto" src="audio/starting beat 1.mp3"></audio>
@@ -1228,6 +1229,8 @@
    isRoundActive = true;
    isEndingProcessed = false;
    isDNF = false;
+   const bgm = document.getElementById('m5-bgm-player');
+   if (bgm) { bgm.currentTime = 0; bgm.play(); }
  
    m5Canvas = document.getElementById('m5-highway');
    m5Ctx = m5Canvas.getContext('2d');
@@ -1323,6 +1326,8 @@ function manualEndMode5() {
       clearTimeout(m5KickTimeoutTimer);   // ADD - was missing, caused background sounds
       cancelAnimationFrame(m5AnimFrame);
       clearTimeout(m5KickTimeoutTimer);
+      const bgm = document.getElementById('m5-bgm-player');
+      if (bgm) { bgm.pause(); bgm.currentTime = 0; }
       // Stop any audio that's currently playing
       ['m5-kick-cue-player','m5-rest-cue-player','m5-count-beat1-player','m5-count-beat2-player'].forEach(id => {
         const el = document.getElementById(id);
