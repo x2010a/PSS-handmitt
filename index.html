@@ -1418,7 +1418,14 @@ function manualEndMode5() {
       document.getElementById('statusMsg').innerText = "GET READY...";
       document.getElementById('statusMsg').style.color = "var(--text)";
     }
-    if(id.includes('settings')) updateDropdowns();
+    if(id.includes('settings')) {
+      updateDropdowns();
+      currentModeName = "";
+      isRoundActive = false;
+      isEndingProcessed = false;
+      const sm = document.getElementById('statusMsg');
+      if (sm) { sm.innerText = "GET READY..."; sm.style.color = "var(--text)"; }
+    }
   }
 
   function updateDropdowns() {
